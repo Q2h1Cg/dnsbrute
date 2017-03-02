@@ -39,7 +39,7 @@ type dnsRecord struct {
 	IP     []string
 }
 
-type dnsClient struct {
+type DNSClient struct {
 	Query     chan string
 	Record    chan dnsRecord
 	chRetry   chan dnsRetryRequest
@@ -71,14 +71,14 @@ func init() {
 	}
 }
 
-func NewClient() dnsClient {
+func NewClient() DNSClient {
 	conn, err := dns.DialTimeout("udp", dnsServers[rand.Intn(len(dnsServers))], Timeout)
 	if err != nil {
 		return NewClient()
 	}
 
 	log.Debug("client =>", conn.Conn.RemoteAddr())
-	client := dnsClient{
+	client := DNSClient{
 		make(chan string, 1000),
 		make(chan dnsRecord, 1000),
 		make(chan dnsRetryRequest, 1000),
@@ -94,7 +94,7 @@ func NewClient() dnsClient {
 	return client
 }
 
-func (client dnsClient) _send(query string, counter uint) {
+func (client DNSClient) _send(query string, counter uint) {
 	query = dns.Fqdn(query)
 	msg := &dns.Msg{}
 	msg.SetQuestion(query, dns.TypeA)
@@ -105,7 +105,7 @@ func (client dnsClient) _send(query string, counter uint) {
 	time.Sleep(RequestDelay)
 }
 
-func (client dnsClient) send() {
+func (client DNSClient) send() {
 	defer close(client.chTimeout)
 	for {
 		select {
@@ -119,7 +119,7 @@ func (client dnsClient) send() {
 	}
 }
 
-func (client dnsClient) recv() {
+func (client DNSClient) recv() {
 	for timer := range client.chSent {
 		client.Conn.SetReadDeadline(time.Now().Add(RecvTimeout))
 		msg, err := client.ReadMsg()
@@ -150,7 +150,7 @@ func (client dnsClient) recv() {
 	client.Conn.Close()
 }
 
-func (client dnsClient) retry() {
+func (client DNSClient) retry() {
 	for timer := range client.chTimeout {
 		select {
 		case <-timer.recved:
