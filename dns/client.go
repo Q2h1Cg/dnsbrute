@@ -2,20 +2,24 @@ package dns
 
 import (
 	"bufio"
-	"log"
 	"math/rand"
+	"net"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/chuhades/dnsbrute/log"
+
 	"github.com/miekg/dns"
 )
 
+var dnsServers []string
+
 var (
-	RetryDelay = time.Second
-	RetryLimit uint = 3
-	RequestDelay = time.Millisecond
-	RecvTimeout = 50 * time.Millisecond
+	Timeout           = time.Second
+	RetryLimit   uint = 3
+	RequestDelay      = time.Millisecond
+	RecvTimeout       = 50 * time.Millisecond
 )
 
 type dnsRequest struct {
@@ -27,7 +31,7 @@ type dnsRequest struct {
 
 type dnsRetryRequest struct {
 	counter uint
-	domain string
+	domain  string
 }
 
 type dnsRecord struct {
@@ -36,15 +40,13 @@ type dnsRecord struct {
 }
 
 type dnsClient struct {
-	Query   chan string
-	Record  chan dnsRecord
-	chRetry chan dnsRetryRequest
-	chSent  chan dnsRequest
+	Query     chan string
+	Record    chan dnsRecord
+	chRetry   chan dnsRetryRequest
+	chSent    chan dnsRequest
 	chTimeout chan dnsRequest
 	*dns.Conn
 }
-
-var dnsServers []string
 
 func init() {
 	fd, err := os.Open("dict/dnsservers.txt")
@@ -70,12 +72,12 @@ func init() {
 }
 
 func NewClient() dnsClient {
-	conn, err := dns.DialTimeout("udp", dnsServers[rand.Intn(len(dnsServers)-1)], RetryDelay)
+	conn, err := dns.DialTimeout("udp", dnsServers[rand.Intn(len(dnsServers))], Timeout)
 	if err != nil {
 		return NewClient()
 	}
 
-	log.Println(conn.Conn.RemoteAddr())
+	log.Debug("client =>", conn.Conn.RemoteAddr())
 	client := dnsClient{
 		make(chan string, 1000),
 		make(chan dnsRecord, 1000),
@@ -97,7 +99,7 @@ func (client dnsClient) _send(query string, counter uint) {
 	msg := &dns.Msg{}
 	msg.SetQuestion(query, dns.TypeA)
 	client.WriteMsg(msg)
-	timer := dnsRequest{counter, query, time.After(RetryDelay), make(chan struct{})}
+	timer := dnsRequest{counter, query, time.After(Timeout), make(chan struct{})}
 	client.chSent <- timer
 	client.chTimeout <- timer
 	time.Sleep(RequestDelay)
@@ -123,8 +125,12 @@ func (client dnsClient) recv() {
 		msg, err := client.ReadMsg()
 		if err != nil {
 			// TODO 处理连接关闭的情况
-			// 处理错误
-			continue
+			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+				log.Debug(nerr)
+				continue
+			} else {
+				log.Fatal(err)
+			}
 		}
 
 		record := dnsRecord{Domain: msg.Question[0].Name}
@@ -141,6 +147,7 @@ func (client dnsClient) recv() {
 		}
 	}
 	close(client.Record)
+	client.Conn.Close()
 }
 
 func (client dnsClient) retry() {
@@ -149,8 +156,8 @@ func (client dnsClient) retry() {
 		case <-timer.recved:
 		case <-timer.timeout:
 			if timer.counter < RetryLimit {
-				log.Printf("retry timeout %s %d\n", timer.domain, timer.counter)
-				client.chRetry <- dnsRetryRequest{timer.counter+1, timer.domain}
+				log.Debugf("retry %s, round %d\n", timer.domain, timer.counter+1)
+				client.chRetry <- dnsRetryRequest{timer.counter + 1, timer.domain}
 			}
 		}
 	}
