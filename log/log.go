@@ -1,6 +1,6 @@
 package log
 
-import syslog "log"
+import _log "log"
 
 const (
 	INFO  = 0
@@ -10,10 +10,10 @@ const (
 var logLevel = INFO
 
 var (
-	Info   = syslog.Println
-	Infof  = syslog.Printf
-	Fatal  = syslog.Fatalln
-	Fatalf = syslog.Fatalf
+	Info   = _log.Println
+	Infof  = _log.Printf
+	Fatal  = _log.Fatalln
+	Fatalf = _log.Fatalf
 )
 
 // SetLevel 设置日志级别
@@ -26,13 +26,13 @@ func SetLevel(level int) {
 // Debug 显示调试信息
 func Debug(msg ...interface{}) {
 	if logLevel >= DEBUG {
-		syslog.Println(msg...)
+		_log.Println(msg...)
 	}
 }
 
 // Debugf 显示调试信息，fotmated
 func Debugf(format string, v ...interface{}) {
 	if logLevel >= DEBUG {
-		syslog.Printf(format, v...)
+		_log.Printf(format, v...)
 	}
 }
