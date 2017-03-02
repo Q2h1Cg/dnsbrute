@@ -2,7 +2,7 @@ package dns
 
 import (
 	"bufio"
-	"math/rand"
+	_rand "math/rand"
 	"net"
 	"os"
 	"strings"
@@ -14,6 +14,8 @@ import (
 )
 
 var dnsServers []string
+
+var rand = _rand.New(_rand.NewSource(time.Now().Unix()))
 
 var (
 	Timeout           = time.Second
@@ -49,6 +51,7 @@ type DNSClient struct {
 }
 
 func init() {
+	// 加载 DNS Server 字典
 	fd, err := os.Open("dict/dnsservers.txt")
 	if err != nil {
 		log.Fatal("Can't open dict/dnsservers.txt:", err)
