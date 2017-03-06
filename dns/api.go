@@ -15,7 +15,7 @@ type API interface {
 	Query(rootDomain string, subDomains chan<- string, message chan<- string)
 }
 
-func QueryOnAPI(rootDomain string) {
+func QueryOverAPI(rootDomain string) {
 	subDomains := make(chan string)
 	message := make(chan string)
 
