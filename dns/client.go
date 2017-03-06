@@ -36,14 +36,14 @@ type dnsRetryRequest struct {
 	domain  string
 }
 
-type dnsRecord struct {
+type DNSRecord struct {
 	Domain string
 	IP     []string
 }
 
 type DNSClient struct {
 	Query     chan string
-	Record    chan dnsRecord
+	Record    chan DNSRecord
 	chRetry   chan dnsRetryRequest
 	chSent    chan dnsRequest
 	chTimeout chan dnsRequest
@@ -83,7 +83,7 @@ func NewClient() DNSClient {
 	log.Debug("client =>", conn.Conn.RemoteAddr())
 	client := DNSClient{
 		make(chan string, 1000),
-		make(chan dnsRecord, 1000),
+		make(chan DNSRecord, 1000),
 		make(chan dnsRetryRequest, 1000),
 		make(chan dnsRequest, 1000),
 		make(chan dnsRequest, 1000),
@@ -136,7 +136,7 @@ func (client DNSClient) recv() {
 			}
 		}
 
-		record := dnsRecord{Domain: msg.Question[0].Name}
+		record := DNSRecord{Domain: msg.Question[0].Name}
 		for _, ans := range msg.Answer {
 			if a, ok := ans.(*dns.A); ok {
 				record.IP = append(record.IP, a.A.String())
