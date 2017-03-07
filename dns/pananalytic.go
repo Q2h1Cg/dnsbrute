@@ -5,13 +5,13 @@ import (
 	"strconv"
 )
 
-var PanAnalyticRecord = map[string]struct{}{}
+var panAnalyticRecord = map[string]bool{}
 
 func AnalyzePanAnalytic() {
 	for i := 0; i < 5; i++ {
 		ipList, _ := net.LookupIP(strconv.Itoa(rand.Int()) + "." + rootDomain)
 		for _, ip := range ipList {
-			PanAnalyticRecord[ip.String()] = struct{}{}
+			panAnalyticRecord[ip.String()] = true
 		}
 	}
 }
