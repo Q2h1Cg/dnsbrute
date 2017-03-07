@@ -3,6 +3,8 @@ package dns
 import (
 	"net"
 	"strconv"
+
+	"github.com/chuhades/dnsbrute/log"
 )
 
 var panAnalyticRecord = map[string]bool{}
@@ -14,4 +16,5 @@ func AnalyzePanAnalytic() {
 			panAnalyticRecord[ip.String()] = true
 		}
 	}
+	log.Debug("pan analytic record:", panAnalyticRecord)
 }
