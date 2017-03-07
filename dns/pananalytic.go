@@ -1,20 +1,39 @@
 package dns
 
 import (
-	"net"
 	"strconv"
 
 	"github.com/chuhades/dnsbrute/log"
+
+	"github.com/miekg/dns"
 )
 
 var panAnalyticRecord = map[string]bool{}
 
-func AnalyzePanAnalytic() {
-	for i := 0; i < 5; i++ {
-		ipList, _ := net.LookupIP(strconv.Itoa(rand.Int()) + "." + rootDomain)
-		for _, ip := range ipList {
-			panAnalyticRecord[ip.String()] = true
+func query(domain string) (IP []string) {
+	msg := &dns.Msg{}
+	msg.SetQuestion(dns.Fqdn(domain), dns.TypeA)
+	in, err := dns.Exchange(msg, dnsServers[0])
+	if err == nil {
+		for _, ans := range in.Answer {
+			if a, ok := ans.(*dns.A); ok {
+				IP = append(IP, a.A.String())
+			}
 		}
 	}
-	log.Debug("pan analytic record:", panAnalyticRecord)
+
+	return IP
+}
+
+func AnalyzePanAnalytic() {
+	for i := 0; i < 5; i++ {
+		for _, ip := range query(strconv.Itoa(rand.Int()) + "." + rootDomain) {
+			panAnalyticRecord[ip] = true
+		}
+	}
+	msg := "pan analytic record: "
+	for ip := range panAnalyticRecord {
+		msg += ip + " "
+	}
+	log.Debug(msg)
 }
