@@ -98,9 +98,9 @@ func NewClient() DNSClient {
 }
 
 func (client DNSClient) _send(query string, counter uint) {
-	query = dns.Fqdn(query)
+	q := dns.Fqdn(query)
 	msg := &dns.Msg{}
-	msg.SetQuestion(query, dns.TypeA)
+	msg.SetQuestion(q, dns.TypeA)
 	client.WriteMsg(msg)
 	timer := dnsRequest{counter, query, time.After(Timeout), make(chan struct{})}
 	client.chSent <- timer
@@ -136,7 +136,7 @@ func (client DNSClient) recv() {
 			}
 		}
 
-		record := DNSRecord{Domain: msg.Question[0].Name}
+		record := DNSRecord{Domain: strings.TrimSuffix(msg.Question[0].Name, ".")}
 		for _, ans := range msg.Answer {
 			if a, ok := ans.(*dns.A); ok && !panAnalyticRecord[a.A.String()] {
 				record.IP = append(record.IP, a.A.String())
