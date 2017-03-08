@@ -129,7 +129,7 @@ func (client DNSClient) recv() {
 		if err != nil {
 			// TODO 处理连接关闭的情况
 			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
-				log.Debug(nerr)
+				log.Debug("no response")
 				continue
 			} else {
 				log.Fatal(err)
