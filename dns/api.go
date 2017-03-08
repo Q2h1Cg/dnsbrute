@@ -3,9 +3,10 @@ package dns
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
+
+	"github.com/chuhades/dnsbrute/log"
 )
 
 var apiList []API = []API{hackertarget{}}
@@ -15,7 +16,7 @@ type API interface {
 	Query(rootDomain string, subDomains chan<- string, message chan<- string)
 }
 
-func QueryOverAPI(rootDomain string) {
+func QueryOverAPI(rootDomain string) <-chan string {
 	subDomains := make(chan string)
 	message := make(chan string)
 
@@ -24,15 +25,13 @@ func QueryOverAPI(rootDomain string) {
 	}
 
 	go func() {
-		for subDomain := range subDomains {
-			fmt.Println(subDomain)
+		for _ = range apiList {
+			log.Info(<-message)
 		}
+		close(subDomains)
 	}()
 
-	for _ = range apiList {
-		log.Println(<-message)
-	}
-	close(subDomains)
+	return subDomains
 }
 
 type hackertarget struct{}
@@ -46,7 +45,7 @@ func (h hackertarget) Query(rootDomain string, subDomains chan<- string, message
 	url := "http://api.hackertarget.com/hostsearch/?q=" + rootDomain
 	resp, err := http.Get(url)
 	if err != nil {
-		message <- fmt.Sprintf("API %s error: %v\n", h.Name(), err)
+		message <- fmt.Sprintf("API %s error: %v", h.Name(), err)
 		return
 	}
 	defer resp.Body.Close()
@@ -60,8 +59,8 @@ func (h hackertarget) Query(rootDomain string, subDomains chan<- string, message
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		message <- fmt.Sprintf("API %s error: %v\n", h.Name(), err)
+		message <- fmt.Sprintf("API %s error: %v", h.Name(), err)
 		return
 	}
-	message <- fmt.Sprintf("got %d domains from %s\n", n, h.Name())
+	message <- fmt.Sprintf("got %d domains from %s", n, h.Name())
 }
