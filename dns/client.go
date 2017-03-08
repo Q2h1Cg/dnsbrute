@@ -18,7 +18,7 @@ var dnsServers []string
 var rand = _rand.New(_rand.NewSource(time.Now().Unix()))
 
 var (
-	Timeout           = 100 * time.Millisecond
+	Timeout           = 200 * time.Millisecond
 	RetryLimit   uint = 3
 	RequestDelay      = time.Millisecond
 	RecvTimeout       = time.Millisecond
@@ -158,10 +158,14 @@ func (client DNSClient) retry() {
 		select {
 		case <-timer.recved:
 		case <-timer.timeout:
-			if timer.counter < RetryLimit {
-				log.Debugf("retry %s, round %d\n", timer.domain, timer.counter+1)
-				client.chRetry <- dnsRetryRequest{timer.counter + 1, timer.domain}
-			}
+			select {
+				case <- timer.recved:
+				default:
+					if timer.counter < RetryLimit {
+						log.Debugf("retry %s, round %d\n", timer.domain, timer.counter+1)
+						client.chRetry <- dnsRetryRequest{timer.counter + 1, timer.domain}
+					}
+				}
 		}
 	}
 	close(client.chSent)
