@@ -18,10 +18,10 @@ var dnsServers []string
 var rand = _rand.New(_rand.NewSource(time.Now().Unix()))
 
 var (
-	Timeout           = time.Second
+	Timeout           = 100 * time.Millisecond
 	RetryLimit   uint = 3
 	RequestDelay      = time.Millisecond
-	RecvTimeout       = 50 * time.Millisecond
+	RecvTimeout       = time.Millisecond
 )
 
 type dnsRequest struct {
