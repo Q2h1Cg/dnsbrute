@@ -19,10 +19,10 @@ func SetDepthLimit(limit int) {
 
 // DomainDepth 获取域名深度
 func DomainDepth(subdomain string) int {
-	return strings.Count(strings.Trim(subdomain, rootDomain), ".")
+	return strings.Count(strings.TrimSuffix(strings.TrimSuffix(subdomain, "."), rootDomain), ".")
 }
 
 // UnderLimit 是否小于深度限制
 func UnderLimit(subdomain string) bool {
-	return DomainDepth(subdomain) <= depthLimit
+	return DomainDepth(subdomain) < depthLimit
 }
