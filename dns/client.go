@@ -129,21 +129,19 @@ func (client DNSClient) recv() {
 		if err != nil {
 			// TODO 处理连接关闭的情况
 			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
-				log.Debug("no response")
 				continue
 			} else {
 				log.Fatal(err)
 			}
 		}
 
+		close(timer.recved)
 		record := DNSRecord{Domain: strings.TrimSuffix(msg.Question[0].Name, ".")}
 		for _, ans := range msg.Answer {
 			if a, ok := ans.(*dns.A); ok && !panAnalyticRecord[a.A.String()] {
 				record.IP = append(record.IP, a.A.String())
 			}
 		}
-
-		close(timer.recved)
 
 		if len(record.IP) != 0 {
 			client.Record <- record
@@ -159,13 +157,13 @@ func (client DNSClient) retry() {
 		case <-timer.recved:
 		case <-timer.timeout:
 			select {
-				case <- timer.recved:
-				default:
-					if timer.counter < RetryLimit {
-						log.Debugf("retry %s, round %d\n", timer.domain, timer.counter+1)
-						client.chRetry <- dnsRetryRequest{timer.counter + 1, timer.domain}
-					}
+			case <-timer.recved:
+			default:
+				if timer.counter < RetryLimit {
+					log.Debugf("retry %s, round %d\n", timer.domain, timer.counter+1)
+					client.chRetry <- dnsRetryRequest{timer.counter + 1, timer.domain}
 				}
+			}
 		}
 	}
 	close(client.chSent)
