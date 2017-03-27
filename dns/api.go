@@ -3,11 +3,15 @@ package dns
 import (
 	"bufio"
 	"fmt"
-	"net/http"
 	"strings"
+	"time"
 
 	"github.com/chuhades/dnsbrute/log"
+
+	"github.com/astaxie/beego/httplib"
 )
+
+const apiTimeout = 3 * time.Second
 
 var apiList []API = []API{hackertarget{}}
 
@@ -26,7 +30,7 @@ func QueryOverAPI(rootDomain string) <-chan string {
 
 	go func() {
 		for _ = range apiList {
-			log.Info(<-message)
+			log.Debug(<-message)
 		}
 		close(subDomains)
 	}()
@@ -43,7 +47,7 @@ func (h hackertarget) Name() string {
 func (h hackertarget) Query(rootDomain string, subDomains chan<- string, message chan<- string) {
 	n := 0
 	url := "http://api.hackertarget.com/hostsearch/?q=" + rootDomain
-	resp, err := http.Get(url)
+	resp, err := httplib.Get(url).SetTimeout(apiTimeout, apiTimeout).Response()
 	if err != nil {
 		message <- fmt.Sprintf("API %s error: %v", h.Name(), err)
 		return
@@ -54,8 +58,11 @@ func (h hackertarget) Query(rootDomain string, subDomains chan<- string, message
 	for scanner.Scan() {
 		record := strings.TrimSpace(scanner.Text())
 		if record != "" {
-			subDomains <- strings.Split(record, ",")[0]
-			n++
+			domain := strings.Split(record, ",")[0]
+			if domain != rootDomain {
+				subDomains <- domain
+				n++
+			}
 		}
 	}
 	if err := scanner.Err(); err != nil {
