@@ -13,7 +13,7 @@ import (
 
 const apiTimeout = 3 * time.Second
 
-var apiList []API = []API{hackertarget{}}
+var apiList []API = []API{hackertarget{}, passiveDNS{}}
 
 type API interface {
 	Name() string
@@ -45,7 +45,7 @@ func (h hackertarget) Name() string {
 }
 
 func (h hackertarget) Query(rootDomain string, subDomains chan<- string, message chan<- string) {
-	n := 0
+	counter := 0
 	url := "http://api.hackertarget.com/hostsearch/?q=" + rootDomain
 	resp, err := httplib.Get(url).SetTimeout(apiTimeout, apiTimeout).Response()
 	if err != nil {
@@ -61,7 +61,7 @@ func (h hackertarget) Query(rootDomain string, subDomains chan<- string, message
 			domain := strings.Split(record, ",")[0]
 			if domain != rootDomain {
 				subDomains <- domain
-				n++
+				counter++
 			}
 		}
 	}
@@ -69,5 +69,31 @@ func (h hackertarget) Query(rootDomain string, subDomains chan<- string, message
 		message <- fmt.Sprintf("API %s error: %v", h.Name(), err)
 		return
 	}
-	message <- fmt.Sprintf("got %d domains from %s", n, h.Name())
+	message <- fmt.Sprintf("got %d domains from %s", counter, h.Name())
+}
+
+type passiveDNS struct{}
+
+func (p passiveDNS) Name() string {
+	return "http://ptrarchive.com/"
+}
+
+func (p passiveDNS) Query(rootDomain string, subDomains chan<- string, message chan<- string) {
+	counter := 0
+	url := "http://ptrarchive.com/tools/search.htm?label=" + rootDomain
+	resp, err := httplib.Get(url).SetTimeout(apiTimeout, apiTimeout).String()
+	if err != nil {
+		message <- fmt.Sprintf("API %s error: %v", p.Name(), err)
+		return
+	}
+
+	for _, i := range strings.Split(resp, "</td><td>") {
+		domain := strings.Split(i, " ")[0]
+		if strings.HasSuffix(domain, rootDomain) && domain != rootDomain {
+			subDomains <- domain
+			counter++
+		}
+	}
+
+	message <- fmt.Sprintf("got %d domains from %s", counter, p.Name())
 }
