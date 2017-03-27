@@ -57,12 +57,13 @@ func main() {
 	dns.SetRootDomain(*target)
 
 	// pan analytic
+	log.Info("generating blacklist of ip")
 	dns.AnalyzePanAnalytic()
 
 	// query and records
-	sent := make(map[string]struct{})
-	query := make(chan string, 100000)
-	queryUnderLimit := func() chan<- string {
+	queried := make(map[string]struct{})
+	chQuery := make(chan string, 100000)
+	chRecursive := func() chan<- string {
 		ch := make(chan string, 1000)
 		go func() { ch <- *target }()
 		go func() {
@@ -77,8 +78,8 @@ func main() {
 					sub := strings.TrimSpace(scanner.Text())
 					if sub != "" {
 						subdomain := sub + "." + domain
-						if _, ok := sent[subdomain]; !ok {
-							query <- subdomain
+						if _, ok := queried[subdomain]; !ok {
+							chQuery <- subdomain
 						}
 					}
 				}
@@ -96,8 +97,8 @@ func main() {
 	// query over api
 	log.Info("querying over API")
 	for domain := range dns.QueryOverAPI(*target) {
-		if _, ok := sent[domain]; !ok {
-			query <- domain
+		if _, ok := queried[domain]; !ok {
+			chQuery <- domain
 		}
 	}
 
@@ -111,7 +112,7 @@ func main() {
 	// drive all client
 	for _, c := range clients {
 		go func(client dns.DNSClient) {
-			for domain := range query {
+			for domain := range chQuery {
 				client.Query <- domain
 			}
 		}(c)
@@ -139,7 +140,7 @@ func main() {
 		// 如果某子域名在 API 的查询结果中子域名大于阈值，对其进行字典爆破
 		if parentDomain != *target && recursiveCounter[parentDomain].counter > 5 && !recursiveCounter[parentDomain].recursived {
 			recursiveCounter[parentDomain].recursived = true
-			queryUnderLimit <- parentDomain
+			chRecursive <- parentDomain
 		}
 	}
 }
