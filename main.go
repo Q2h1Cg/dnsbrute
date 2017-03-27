@@ -53,12 +53,9 @@ func main() {
 	// set delay between each DNS request
 	dns.RequestDelay = *requestDelay
 
-	// set depth limit
-	dns.SetRootDomain(*target)
-
 	// pan analytic
 	log.Info("generating blacklist of ip")
-	dns.AnalyzePanAnalytic()
+	dns.AnalyzePanAnalytic(*target)
 
 	// query and records
 	queried := make(map[string]struct{})
@@ -136,9 +133,9 @@ func main() {
 			recursiveCounter[parentDomain] = &SubDomainRecursiveCounter{}
 		}
 		recursiveCounter[parentDomain].counter++
-		// 阈值：5
+		// 阈值：10
 		// 如果某子域名在 API 的查询结果中子域名大于阈值，对其进行字典爆破
-		if parentDomain != *target && recursiveCounter[parentDomain].counter > 5 && !recursiveCounter[parentDomain].recursived {
+		if parentDomain != *target && recursiveCounter[parentDomain].counter > 10 && !recursiveCounter[parentDomain].recursived {
 			recursiveCounter[parentDomain].recursived = true
 			chRecursive <- parentDomain
 		}
