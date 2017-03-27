@@ -31,9 +31,5 @@ func AnalyzePanAnalytic() {
 			panAnalyticRecord[ip] = true
 		}
 	}
-	msg := "pan analytic record: "
-	for ip := range panAnalyticRecord {
-		msg += ip + " "
-	}
-	log.Debug(msg)
+	log.Debugf("pan analytic record: %v\n", panAnalyticRecord)
 }
