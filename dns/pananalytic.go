@@ -25,7 +25,8 @@ func query(domain string) (IP []string) {
 	return IP
 }
 
-func AnalyzePanAnalytic() {
+// FIXME 子域名也有可能存在泛解析
+func AnalyzePanAnalytic(rootDomain string) {
 	for i := 0; i < 5; i++ {
 		for _, ip := range query(strconv.Itoa(rand.Int()) + "." + rootDomain) {
 			panAnalyticRecord[ip] = true
