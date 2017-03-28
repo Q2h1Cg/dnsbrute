@@ -76,6 +76,7 @@ func main() {
 					if sub != "" {
 						subdomain := sub + "." + domain
 						if _, ok := queried[subdomain]; !ok {
+							queried[subdomain] = struct{}{}
 							chQuery <- subdomain
 						}
 					}
@@ -95,6 +96,7 @@ func main() {
 	log.Info("querying over API")
 	for domain := range dns.QueryOverAPI(*target) {
 		if _, ok := queried[domain]; !ok {
+			queried[domain] = struct{}{}
 			chQuery <- domain
 		}
 	}
@@ -140,4 +142,5 @@ func main() {
 			chRecursive <- parentDomain
 		}
 	}
+	// FIXME 无法自动退出，程序不结束
 }

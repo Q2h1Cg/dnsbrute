@@ -44,6 +44,7 @@ type DNSRecord struct {
 type DNSClient struct {
 	Query     chan string
 	Record    chan DNSRecord
+	resolved  map[string]struct{}
 	chRetry   chan dnsRetryRequest
 	chSent    chan dnsRequest
 	chTimeout chan dnsRequest
@@ -84,6 +85,7 @@ func NewClient() DNSClient {
 	client := DNSClient{
 		make(chan string, 1000),
 		make(chan DNSRecord, 1000),
+		make(map[string]struct{}),
 		make(chan dnsRetryRequest, 1000),
 		make(chan dnsRequest, 1000),
 		make(chan dnsRequest, 1000),
@@ -137,14 +139,18 @@ func (client DNSClient) recv() {
 
 		close(timer.recved)
 		record := DNSRecord{Domain: strings.TrimSuffix(msg.Question[0].Name, ".")}
-		for _, ans := range msg.Answer {
-			if a, ok := ans.(*dns.A); ok && !panAnalyticRecord[a.A.String()] {
-				record.IP = append(record.IP, a.A.String())
-			}
-		}
+		if _, ok := client.resolved[record.Domain]; !ok {
+			client.resolved[record.Domain] = struct{}{}
 
-		if len(record.IP) != 0 {
-			client.Record <- record
+			for _, ans := range msg.Answer {
+				if a, ok := ans.(*dns.A); ok && !panAnalyticRecord[a.A.String()] {
+					record.IP = append(record.IP, a.A.String())
+				}
+			}
+
+			if len(record.IP) != 0 {
+				client.Record <- record
+			}
 		}
 	}
 	close(client.Record)
