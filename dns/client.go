@@ -39,6 +39,8 @@ type dnsRetryRequest struct {
 
 type DNSRecord struct {
 	Domain string
+	Type string
+	Target string
 	IP     []string
 }
 
@@ -151,9 +153,16 @@ func (client DNSClient) recv() {
 			client.resolved[record.Domain] = struct{}{}
 
 			if len(msg.Answer) > 0 {
-				if _, ok := msg.Answer[0].(*dns.A); !ok {
-					continue
-				} else {
+				if c, ok := msg.Answer[0].(*dns.CNAME); ok {
+					record.Type = "CNAME"
+					record.Target = strings.TrimSuffix(c.Target, ".")
+					if strings.HasSuffix(record.Target, rootDomain) {
+						go func() {
+							client.Query <- record.Target
+						}()
+					}
+				} else if _, ok := msg.Answer[0].(*dns.A); ok {
+					record.Type = "A"
 					for _, ans := range msg.Answer {
 						if a, ok := ans.(*dns.A); ok {
 							if _, okPanAnalyticRecord := panAnalyticRecord[a.A.String()]; !okPanAnalyticRecord {
@@ -163,7 +172,7 @@ func (client DNSClient) recv() {
 					}
 				}
 
-				if len(record.IP) > 0 {
+				if record.Type == "CNAME" || (record.Type == "A" && len(record.IP) > 0) {
 					client.Record <- record
 				}
 			}
