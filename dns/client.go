@@ -155,6 +155,7 @@ func (client DNSClient) recv() {
 	}
 	close(client.Record)
 	client.Conn.Close()
+	log.Debug("close client", client.Conn.RemoteAddr())
 }
 
 func (client DNSClient) retry() {
