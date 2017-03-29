@@ -15,4 +15,4 @@
 
 #### Bugs
 - program won't exit normally
-- repetitive subdomains
+- ~~repetitive subdomains~~
