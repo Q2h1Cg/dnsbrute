@@ -36,7 +36,7 @@ func main() {
 	}
 
 	if *target == "" {
-		fmt.Println("no target")
+		flag.Usage()
 		os.Exit(1)
 	}
 
@@ -47,7 +47,6 @@ func main() {
 
 	// set delay between each DNS request
 	dns.RequestDelay = *requestDelay
-
 
 	// set root domain
 	dns.SetRootDomain(*target)
