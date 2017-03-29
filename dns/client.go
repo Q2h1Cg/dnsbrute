@@ -86,7 +86,7 @@ func NewClient() DNSClient {
 		make(chan string, 1000),
 		make(chan DNSRecord, 1000),
 		make(map[string]struct{}),
-		make(chan dnsRetryRequest, 1000),
+		make(chan dnsRetryRequest, 50000),
 		make(chan dnsRequest, 1000),
 		make(chan dnsRequest, 1000),
 		conn,
@@ -118,7 +118,7 @@ func (client DNSClient) send() {
 			client._send(query, 0)
 		case retry := <-client.chRetry:
 			client._send(retry.domain, retry.counter)
-		case <-time.After(time.Second):
+		case <-time.After(1050 * time.Millisecond):
 			return
 		}
 	}
@@ -160,7 +160,9 @@ func (client DNSClient) recv() {
 					}
 				}
 
-				client.Record <- record
+				if len(record.IP) > 0 {
+					client.Record <- record
+				}
 			}
 		}
 	}
