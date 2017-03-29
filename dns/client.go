@@ -143,8 +143,10 @@ func (client DNSClient) recv() {
 			client.resolved[record.Domain] = struct{}{}
 
 			for _, ans := range msg.Answer {
-				if a, ok := ans.(*dns.A); ok && !panAnalyticRecord[a.A.String()] {
-					record.IP = append(record.IP, a.A.String())
+				if a, ok := ans.(*dns.A); ok {
+					if _, okPanAnalyticRecord := panAnalyticRecord[a.A.String()]; !okPanAnalyticRecord {
+						record.IP = append(record.IP, a.A.String())
+					}
 				}
 			}
 

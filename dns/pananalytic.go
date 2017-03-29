@@ -8,7 +8,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-var panAnalyticRecord = map[string]bool{}
+var panAnalyticRecord = map[string]struct{}{}
 
 func query(domain string) (IP []string) {
 	msg := &dns.Msg{}
@@ -30,7 +30,7 @@ func query(domain string) (IP []string) {
 func AnalyzePanAnalytic(rootDomain string) {
 	for i := 0; i < 5; i++ {
 		for _, ip := range query(strconv.Itoa(rand.Int()) + "." + rootDomain) {
-			panAnalyticRecord[ip] = true
+			panAnalyticRecord[ip] = struct{}{}
 		}
 	}
 	log.Debugf("pan analytic record: %v\n", panAnalyticRecord)
