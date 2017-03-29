@@ -125,6 +125,11 @@ func (client DNSClient) send() {
 }
 
 func (client DNSClient) recv() {
+	// 泛解析域名指向的 IP
+	for record := range chPanAnalyticRecord {
+		client.Record <- record
+	}
+
 	for timer := range client.chSent {
 		client.Conn.SetReadDeadline(time.Now().Add(RecvTimeout))
 		msg, err := client.ReadMsg()

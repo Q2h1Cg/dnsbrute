@@ -1,14 +1,18 @@
 package dns
 
 import (
-	"strconv"
+	"crypto/md5"
+	"encoding/hex"
 
 	"github.com/chuhades/dnsbrute/log"
 
 	"github.com/miekg/dns"
 )
 
-var panAnalyticRecord = map[string]struct{}{}
+var (
+	panAnalyticRecord   = map[string]struct{}{}
+	chPanAnalyticRecord = make(chan DNSRecord, 1)
+)
 
 func query(domain string) (IP []string) {
 	msg := &dns.Msg{}
@@ -28,10 +32,19 @@ func query(domain string) (IP []string) {
 // FIXME 子域名也有可能存在泛解析
 // FIXME 某真实存在的域名可能指向泛解析记录
 func AnalyzePanAnalytic(rootDomain string) {
-	for i := 0; i < 5; i++ {
-		for _, ip := range query(strconv.Itoa(rand.Int()) + "." + rootDomain) {
+	hash := md5.New()
+	hash.Write([]byte(rootDomain))
+	domain := hex.EncodeToString(hash.Sum(nil)) + "." + rootDomain
+	for i := 0; i < 3; i++ {
+		for _, ip := range query(domain) {
 			panAnalyticRecord[ip] = struct{}{}
 		}
 	}
+	ipList := []string{}
+	for ip := range panAnalyticRecord {
+		ipList = append(ipList, ip)
+	}
+	chPanAnalyticRecord <- DNSRecord{Domain: domain, IP: ipList}
+	close(chPanAnalyticRecord)
 	log.Debugf("pan analytic record: %v\n", panAnalyticRecord)
 }
