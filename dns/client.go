@@ -147,15 +147,19 @@ func (client DNSClient) recv() {
 		if _, ok := client.resolved[record.Domain]; !ok {
 			client.resolved[record.Domain] = struct{}{}
 
-			for _, ans := range msg.Answer {
-				if a, ok := ans.(*dns.A); ok {
-					if _, okPanAnalyticRecord := panAnalyticRecord[a.A.String()]; !okPanAnalyticRecord {
-						record.IP = append(record.IP, a.A.String())
+			if len(msg.Answer) > 0 {
+				if _, ok := msg.Answer[0].(*dns.A); !ok {
+					continue
+				} else {
+					for _, ans := range msg.Answer {
+						if a, ok := ans.(*dns.A); ok {
+							if _, okPanAnalyticRecord := panAnalyticRecord[a.A.String()]; !okPanAnalyticRecord {
+								record.IP = append(record.IP, a.A.String())
+							}
+						}
 					}
 				}
-			}
 
-			if len(record.IP) != 0 {
 				client.Record <- record
 			}
 		}
