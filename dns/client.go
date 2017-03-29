@@ -22,6 +22,7 @@ var (
 	RetryLimit   uint = 3
 	RequestDelay      = time.Millisecond
 	RecvTimeout       = time.Millisecond
+	WaitingTime       = time.Second
 )
 
 type dnsRequest struct {
@@ -118,7 +119,7 @@ func (client DNSClient) send() {
 			client._send(query, 0)
 		case retry := <-client.chRetry:
 			client._send(retry.domain, retry.counter)
-		case <-time.After(1050 * time.Millisecond):
+		case <-time.After(WaitingTime):
 			return
 		}
 	}
