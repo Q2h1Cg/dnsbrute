@@ -48,9 +48,13 @@ func main() {
 	// set delay between each DNS request
 	dns.RequestDelay = *requestDelay
 
+
+	// set root domain
+	dns.SetRootDomain(*target)
+
 	// pan analytic
 	log.Debug("generating blacklist of ip")
-	dns.AnalyzePanAnalytic(*target)
+	dns.AnalyzePanAnalytic()
 
 	// query and records
 	chQuery := make(chan string)

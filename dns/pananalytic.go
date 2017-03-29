@@ -31,7 +31,7 @@ func query(domain string) (IP []string) {
 
 // FIXME 子域名也有可能存在泛解析
 // FIXME 某真实存在的域名可能指向泛解析记录
-func AnalyzePanAnalytic(rootDomain string) {
+func AnalyzePanAnalytic() {
 	hash := md5.New()
 	hash.Write([]byte(rootDomain))
 	domain := hex.EncodeToString(hash.Sum(nil)) + "." + rootDomain
