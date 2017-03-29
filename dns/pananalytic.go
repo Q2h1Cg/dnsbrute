@@ -3,6 +3,7 @@ package dns
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"strings"
 
 	"github.com/chuhades/dnsbrute/log"
 
@@ -14,19 +15,28 @@ var (
 	chPanAnalyticRecord = make(chan DNSRecord, 1)
 )
 
-func query(domain string) (IP []string) {
+func query(domain string) (record DNSRecord) {
 	msg := &dns.Msg{}
 	msg.SetQuestion(dns.Fqdn(domain), dns.TypeA)
 	in, err := dns.Exchange(msg, dnsServers[0])
 	if err == nil {
-		for _, ans := range in.Answer {
-			if a, ok := ans.(*dns.A); ok {
-				IP = append(IP, a.A.String())
+		if len(in.Answer) > 0 {
+			record.Domain = domain
+			if c, ok := in.Answer[0].(*dns.CNAME); ok {
+				record.Type = "CNAME"
+				record.Target = strings.TrimSuffix(c.Target, ".")
+			} else if _, ok := in.Answer[0].(*dns.A); ok {
+				record.Type = "A"
+				for _, ans := range in.Answer {
+					if a, ok := ans.(*dns.A); ok {
+						record.IP = append(record.IP, a.A.String())
+					}
+				}
 			}
 		}
 	}
 
-	return IP
+	return record
 }
 
 // FIXME 子域名也有可能存在泛解析
@@ -35,18 +45,16 @@ func AnalyzePanAnalytic() {
 	hash := md5.New()
 	hash.Write([]byte(rootDomain))
 	domain := hex.EncodeToString(hash.Sum(nil)) + "." + rootDomain
-	for i := 0; i < 3; i++ {
-		for _, ip := range query(domain) {
+	record := query(domain)
+	if record.Type == "CNAME" {
+		// TODO cname 泛解析的情况下，是否把 IP 也加入黑名单
+		panAnalyticRecord[record.Target] = struct{}{}
+	} else if record.Type == "A" {
+		for _, ip := range record.IP {
 			panAnalyticRecord[ip] = struct{}{}
 		}
 	}
-	if len(panAnalyticRecord) > 0 {
-		ipList := []string{}
-		for ip := range panAnalyticRecord {
-			ipList = append(ipList, ip)
-		}
-		chPanAnalyticRecord <- DNSRecord{Domain: domain, IP: ipList}
-	}
+	chPanAnalyticRecord <- record
 	close(chPanAnalyticRecord)
 	log.Debugf("pan analytic record: %v\n", panAnalyticRecord)
 }

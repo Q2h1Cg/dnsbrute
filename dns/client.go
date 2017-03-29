@@ -154,12 +154,15 @@ func (client DNSClient) recv() {
 
 			if len(msg.Answer) > 0 {
 				if c, ok := msg.Answer[0].(*dns.CNAME); ok {
-					record.Type = "CNAME"
-					record.Target = strings.TrimSuffix(c.Target, ".")
-					if strings.HasSuffix(record.Target, rootDomain) {
-						go func() {
-							client.Query <- record.Target
-						}()
+					target := strings.TrimSuffix(c.Target, ".")
+					if _, okPanAnalyticRecord := panAnalyticRecord[target]; !okPanAnalyticRecord {
+						record.Type = "CNAME"
+						record.Target = target
+						if strings.HasSuffix(record.Target, rootDomain) {
+							go func() {
+								client.Query <- record.Target
+							}()
+						}
 					}
 				} else if _, ok := msg.Answer[0].(*dns.A); ok {
 					record.Type = "A"
