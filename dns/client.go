@@ -118,7 +118,9 @@ func (client DNSClient) send() {
 		case query := <-client.Query:
 			client._send(query, 0)
 		case retry := <-client.chRetry:
-			client._send(retry.domain, retry.counter)
+			if retry.counter != 233 {
+				client._send(retry.domain, retry.counter)
+			}
 		case <-time.After(WaitingTime):
 			return
 		}
@@ -176,9 +178,11 @@ func (client DNSClient) retry() {
 	for timer := range client.chTimeout {
 		select {
 		case <-timer.recved:
+			client.chRetry <- dnsRetryRequest{233, ""}
 		case <-timer.timeout:
 			select {
 			case <-timer.recved:
+				client.chRetry <- dnsRetryRequest{233, ""}
 			default:
 				if timer.counter < RetryLimit {
 					log.Debugf("retry %s, round %d\n", timer.domain, timer.counter+1)
