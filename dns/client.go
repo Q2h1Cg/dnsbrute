@@ -39,7 +39,7 @@ type dnsRetryRequest struct {
 
 type DNSRecord struct {
 	Domain string
-	Type string
+	Type   string
 	Target string
 	IP     []string
 }
