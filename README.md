@@ -12,7 +12,3 @@
 - very very very fast
     - DNS Server in Intranet: 10000 domains /sec
     - Public DNS Server: 4000-5000 domains /sec
-
-#### Bugs
-- program won't exit normally
-- ~~repetitive subdomains~~
