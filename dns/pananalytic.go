@@ -40,11 +40,13 @@ func AnalyzePanAnalytic(rootDomain string) {
 			panAnalyticRecord[ip] = struct{}{}
 		}
 	}
-	ipList := []string{}
-	for ip := range panAnalyticRecord {
-		ipList = append(ipList, ip)
+	if len(panAnalyticRecord) > 0 {
+		ipList := []string{}
+		for ip := range panAnalyticRecord {
+			ipList = append(ipList, ip)
+		}
+		chPanAnalyticRecord <- DNSRecord{Domain: domain, IP: ipList}
 	}
-	chPanAnalyticRecord <- DNSRecord{Domain: domain, IP: ipList}
 	close(chPanAnalyticRecord)
 	log.Debugf("pan analytic record: %v\n", panAnalyticRecord)
 }
