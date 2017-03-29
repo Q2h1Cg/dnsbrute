@@ -63,6 +63,7 @@ func main() {
 
 		// query based on dict
 		go func() {
+			ch <- *target
 			fd, err := os.Open(*dictFile)
 			if err != nil {
 				log.Fatal("Error while open dict:", err)
@@ -129,4 +130,6 @@ func main() {
 	}
 	// FIXME 无法自动退出，程序不结束
 	// 断网或网络不好时会出现
+	// 泛解析较多时可能出现
+	// 可能是 retry 次数过多时出现的问题？
 }
