@@ -60,6 +60,7 @@ func main() {
 	chQuery := make(chan string)
 	queried := make(map[string]struct{})
 	records := make(chan dns.DNSRecord)
+	reported := make(map[string]struct{})
 
 	// query subdomains over dict and api
 	go func() {
@@ -130,6 +131,9 @@ func main() {
 	}()
 
 	for record := range records {
-		log.Info(record)
+		if _, ok := reported[record.Domain]; !ok {
+			reported[record.Domain] = struct{}{}
+			log.Info(record)
+		}
 	}
 }
