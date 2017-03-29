@@ -49,7 +49,7 @@ func main() {
 	dns.RequestDelay = *requestDelay
 
 	// pan analytic
-	log.Info("generating blacklist of ip")
+	log.Debug("generating blacklist of ip")
 	dns.AnalyzePanAnalytic(*target)
 
 	// query and records
@@ -128,4 +128,5 @@ func main() {
 		log.Info(record)
 	}
 	// FIXME 无法自动退出，程序不结束
+	// 断网或网络不好时会出现
 }
