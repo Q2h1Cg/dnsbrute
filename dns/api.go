@@ -41,7 +41,7 @@ func QueryOverAPI(rootDomain string) <-chan string {
 type hackertarget struct{}
 
 func (h hackertarget) Name() string {
-	return "http://www.hackertarget.com/"
+	return "www.hackertarget.com"
 }
 
 func (h hackertarget) Query(rootDomain string, subDomains chan<- string, message chan<- string) {
@@ -75,7 +75,7 @@ func (h hackertarget) Query(rootDomain string, subDomains chan<- string, message
 type passiveDNS struct{}
 
 func (p passiveDNS) Name() string {
-	return "http://ptrarchive.com/"
+	return "ptrarchive.com"
 }
 
 func (p passiveDNS) Query(rootDomain string, subDomains chan<- string, message chan<- string) {
