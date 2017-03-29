@@ -13,12 +13,7 @@ import (
 	"github.com/chuhades/dnsbrute/log"
 )
 
-var versionNumber = "1.0#dev"
-
-type SubDomainRecursiveCounter struct {
-	counter    uint
-	recursived bool
-}
+const versionNumber = "1.0#dev"
 
 func main() {
 	flag.Usage = func() {
@@ -58,56 +53,57 @@ func main() {
 	dns.AnalyzePanAnalytic(*target)
 
 	// query and records
+	chQuery := make(chan string)
 	queried := make(map[string]struct{})
-	chQuery := make(chan string, 100000)
-	chRecursive := func() chan<- string {
-		ch := make(chan string, 1000)
-		go func() { ch <- *target }()
-		go func() {
-			for domain := range ch {
-				fd, err := os.Open(*dictFile)
-				if err != nil {
-					log.Fatal("Error while open dict:", err)
-				}
-
-				scanner := bufio.NewScanner(fd)
-				for scanner.Scan() {
-					sub := strings.TrimSpace(scanner.Text())
-					if sub != "" {
-						subdomain := sub + "." + domain
-						if _, ok := queried[subdomain]; !ok {
-							queried[subdomain] = struct{}{}
-							chQuery <- subdomain
-						}
-					}
-				}
-
-				if err := scanner.Err(); err != nil {
-					log.Fatal("Error while read dict:", err)
-				}
-				fd.Close()
-			}
-		}()
-		return ch
-	}()
 	records := make(chan dns.DNSRecord)
 
-	// query over api
-	log.Info("querying over API")
-	for domain := range dns.QueryOverAPI(*target) {
-		if _, ok := queried[domain]; !ok {
-			queried[domain] = struct{}{}
-			chQuery <- domain
+	// query subdomains over dict and api
+	go func() {
+		ch := make(chan string)
+
+		// query based on dict
+		go func() {
+			fd, err := os.Open(*dictFile)
+			if err != nil {
+				log.Fatal("Error while open dict:", err)
+			}
+
+			scanner := bufio.NewScanner(fd)
+			for scanner.Scan() {
+				sub := strings.TrimSpace(scanner.Text())
+				if sub != "" {
+					ch <- sub + "." + *target
+				}
+			}
+
+			if err := scanner.Err(); err != nil {
+				log.Fatal("Error while read dict:", err)
+			}
+			fd.Close()
+		}()
+
+		// query over api
+		go func() {
+			for domain := range dns.QueryOverAPI(*target) {
+				ch <- domain
+			}
+		}()
+
+		for domain := range ch {
+			if _, ok := queried[domain]; !ok {
+				queried[domain] = struct{}{}
+				chQuery <- domain
+			}
 		}
-	}
+	}()
 
 	// clients
 	wg := sync.WaitGroup{}
-	recursiveCounter := map[string]*SubDomainRecursiveCounter{}
 	clients := []dns.DNSClient{}
 	for i := 0; i < *threads; i++ {
 		clients = append(clients, dns.NewClient())
 	}
+
 	// drive all client
 	for _, c := range clients {
 		go func(client dns.DNSClient) {
@@ -130,17 +126,6 @@ func main() {
 
 	for record := range records {
 		log.Info(record)
-		parentDomain := dns.ParentDomain(record.Domain)
-		if _, ok := recursiveCounter[parentDomain]; !ok {
-			recursiveCounter[parentDomain] = &SubDomainRecursiveCounter{}
-		}
-		recursiveCounter[parentDomain].counter++
-		// 阈值：10
-		// 如果某子域名在 API 的查询结果中子域名大于阈值，对其进行字典爆破
-		if parentDomain != *target && recursiveCounter[parentDomain].counter > 10 && !recursiveCounter[parentDomain].recursived {
-			recursiveCounter[parentDomain].recursived = true
-			chRecursive <- parentDomain
-		}
 	}
 	// FIXME 无法自动退出，程序不结束
 }
