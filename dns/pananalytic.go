@@ -54,7 +54,7 @@ func AnalyzePanAnalytic() {
 			panAnalyticRecord[ip] = struct{}{}
 		}
 	}
-	if (record.Type == "CNAME" && record.Target != "") || (record.Type == "A" && len(record.IP)>0) {
+	if (record.Type == "CNAME" && record.Target != "") || (record.Type == "A" && len(record.IP) > 0) {
 		chPanAnalyticRecord <- record
 	}
 	close(chPanAnalyticRecord)
