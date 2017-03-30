@@ -14,7 +14,7 @@ import (
 	"github.com/chuhades/dnsbrute/log"
 )
 
-const versionNumber = "1.0#20170330"
+const versionNumber = "1.1#20170331"
 
 func main() {
 	flag.Usage = func() {
@@ -52,7 +52,7 @@ func main() {
 	// set root domain
 	dns.SetRootDomain(*target)
 
-	// pan analytic
+	// 设置权威 DNS 服务器并探测泛解析
 	log.Debug("generating blacklist of ip")
 	dns.AnalyzePanAnalytic()
 

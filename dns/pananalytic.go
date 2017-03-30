@@ -3,29 +3,56 @@ package dns
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"strings"
 
 	"github.com/chuhades/dnsbrute/log"
 
 	"github.com/miekg/dns"
 )
 
+const panAnalyticTtlMagicNum uint32 = 13377331
+
 var (
-	panAnalyticRecord   = map[string]struct{}{}
-	chPanAnalyticRecord = make(chan DNSRecord, 1)
+	authoritativeDNSServers = []string{}
+	panAnalyticRecords      = map[string]uint32{}
+	chPanAnalyticRecord     = make(chan DNSRecord)
 )
 
-func query(domain string) (record DNSRecord) {
+type panAnalyticRecord struct {
+	Domain string
+	Ttl    uint32
+	Type   string
+	Target string
+	IP     []string
+}
+
+func setAuthoritativeDNSServers() {
+	msg := &dns.Msg{}
+	msg.SetQuestion(dns.Fqdn(rootDomain), dns.TypeNS)
+	in, err := dns.Exchange(msg, dnsServers[rand.Intn(len(dnsServers))])
+	if err == nil && len(in.Answer) > 0 {
+		for _, ans := range in.Answer {
+			if ns, ok := ans.(*dns.NS); ok {
+				authoritativeDNSServers = append(authoritativeDNSServers, TrimSuffixPoint(ns.Ns)+":53")
+			}
+		}
+	} else {
+		setAuthoritativeDNSServers()
+	}
+}
+
+func query(domain string, server string) (record panAnalyticRecord) {
 	msg := &dns.Msg{}
 	msg.SetQuestion(dns.Fqdn(domain), dns.TypeA)
-	in, err := dns.Exchange(msg, dnsServers[0])
+	in, err := dns.Exchange(msg, server)
 	if err == nil {
 		if len(in.Answer) > 0 {
 			record.Domain = domain
-			if c, ok := in.Answer[0].(*dns.CNAME); ok {
+			record.Ttl = in.Answer[0].Header().Ttl
+			switch firstAnswer := in.Answer[0].(type) {
+			case *dns.CNAME:
 				record.Type = "CNAME"
-				record.Target = strings.TrimSuffix(c.Target, ".")
-			} else if _, ok := in.Answer[0].(*dns.A); ok {
+				record.Target = TrimSuffixPoint(firstAnswer.Target)
+			case *dns.A:
 				record.Type = "A"
 				for _, ans := range in.Answer {
 					if a, ok := ans.(*dns.A); ok {
@@ -39,24 +66,69 @@ func query(domain string) (record DNSRecord) {
 	return record
 }
 
-// FIXME 子域名也有可能存在泛解析
-// FIXME 某真实存在的域名可能指向泛解析记录
+// AnalyzePanAnalytic 分析泛解析
 func AnalyzePanAnalytic() {
 	hash := md5.New()
 	hash.Write([]byte(rootDomain))
 	domain := hex.EncodeToString(hash.Sum(nil)) + "." + rootDomain
-	record := query(domain)
-	if record.Type == "CNAME" {
-		// TODO cname 泛解析的情况下，是否把 IP 也加入黑名单
-		panAnalyticRecord[record.Target] = struct{}{}
-	} else if record.Type == "A" {
-		for _, ip := range record.IP {
-			panAnalyticRecord[ip] = struct{}{}
+	cnames := map[string]struct{}{}
+	ipLists := map[string]struct{}{}
+
+	// 获取权威 DNS 服务器
+	setAuthoritativeDNSServers()
+
+	ch := make(chan panAnalyticRecord)
+	for _, server := range authoritativeDNSServers {
+		for i := 0; i < 10; i++ {
+			go func(server string) {
+				ch <- query(domain, server)
+			}(server)
 		}
 	}
-	if (record.Type == "CNAME" && record.Target != "") || (record.Type == "A" && len(record.IP) > 0) {
-		chPanAnalyticRecord <- record
+	for _ = range authoritativeDNSServers {
+		for i := 0; i < 10; i++ {
+			pRecord := <-ch
+			switch pRecord.Type {
+			case "CNAME":
+				cnames[pRecord.Target] = struct{}{}
+				// TODO cname 泛解析的情况下，是否把 IP 也加入黑名单
+				if pRecord.Ttl%60 != 0 {
+					panAnalyticRecords[pRecord.Target] = panAnalyticTtlMagicNum
+				} else {
+					panAnalyticRecords[pRecord.Target] = pRecord.Ttl
+				}
+			case "A":
+				for _, ip := range pRecord.IP {
+					ipLists[ip] = struct{}{}
+					if pRecord.Ttl%60 != 0 {
+						panAnalyticRecords[ip] = panAnalyticTtlMagicNum
+					} else {
+						panAnalyticRecords[ip] = pRecord.Ttl
+					}
+				}
+			}
+		}
 	}
-	close(chPanAnalyticRecord)
-	log.Debugf("pan analytic record: %v\n", panAnalyticRecord)
+	close(ch)
+
+	go func() {
+		for cname := range cnames {
+			chPanAnalyticRecord <- DNSRecord{domain, "CNAME", cname, []string{}}
+		}
+		if len(ipLists) > 0 {
+			IP := []string{}
+			for ip := range ipLists {
+				IP = append(IP, ip)
+			}
+			chPanAnalyticRecord <- DNSRecord{domain, "A", "", IP}
+		}
+		close(chPanAnalyticRecord)
+	}()
+	log.Debugf("pan analytic record: %v\n", panAnalyticRecords)
+}
+
+// IsPanAnalytic 是否为泛解析域名
+func IsPanAnalytic(record string, ttl uint32) bool {
+	_ttl, ok := panAnalyticRecords[TrimSuffixPoint(record)]
+	return ok && (_ttl == panAnalyticTtlMagicNum || _ttl == ttl)
 }

@@ -79,7 +79,7 @@ func init() {
 }
 
 func NewClient() DNSClient {
-	conn, err := dns.DialTimeout("udp", dnsServers[rand.Intn(len(dnsServers))], Timeout)
+	conn, err := dns.DialTimeout("udp", authoritativeDNSServers[rand.Intn(len(authoritativeDNSServers))], Timeout)
 	if err != nil {
 		return NewClient()
 	}
@@ -133,7 +133,7 @@ func (client DNSClient) recv() {
 	// 泛解析记录
 	for record := range chPanAnalyticRecord {
 		client.Record <- record
-		if record.Type == "CNAME" && strings.HasSuffix(record.Target, "." + rootDomain) {
+		if record.Type == "CNAME" && IsSubdomain(record.Target) {
 			client.Query <- record.Target
 		}
 	}
@@ -151,27 +151,32 @@ func (client DNSClient) recv() {
 		}
 
 		close(timer.recved)
-		record := DNSRecord{Domain: strings.TrimSuffix(msg.Question[0].Name, ".")}
+		record := DNSRecord{Domain: TrimSuffixPoint(msg.Question[0].Name)}
 		if _, ok := client.resolved[record.Domain]; !ok {
 			client.resolved[record.Domain] = struct{}{}
 
 			if len(msg.Answer) > 0 {
-				if c, ok := msg.Answer[0].(*dns.CNAME); ok {
-					target := strings.TrimSuffix(c.Target, ".")
-					if _, okPanAnalyticRecord := panAnalyticRecord[target]; !okPanAnalyticRecord {
+				switch firstAnswer := msg.Answer[0].(type) {
+				case *dns.CNAME:
+					target := TrimSuffixPoint(firstAnswer.Target)
+					//if ttl, _ok := panAnalyticRecords[target]; ttl != panAnalyticTtlMagicNum && !(_ok && firstAnswer.Hdr.Ttl == ttl) {
+					//if ttl, _ok := panAnalyticRecords[target]; !_ok || (_ok && ttl != panAnalyticTtlMagicNum && ttl != firstAnswer.Hdr.Ttl) {
+					if !IsPanAnalytic(target, firstAnswer.Hdr.Ttl) {
 						record.Type = "CNAME"
 						record.Target = target
-						if strings.HasSuffix(record.Target, "." + rootDomain) {
+						if IsSubdomain(record.Target) {
 							go func() {
 								client.Query <- record.Target
 							}()
 						}
 					}
-				} else if _, ok := msg.Answer[0].(*dns.A); ok {
+				case *dns.A:
 					record.Type = "A"
 					for _, ans := range msg.Answer {
 						if a, ok := ans.(*dns.A); ok {
-							if _, okPanAnalyticRecord := panAnalyticRecord[a.A.String()]; !okPanAnalyticRecord {
+							//if ttl, _ok := panAnalyticRecords[a.A.String()]; ttl != panAnalyticTtlMagicNum && !(_ok && a.Hdr.Ttl == ttl) {
+							//if ttl, _ok := panAnalyticRecords[a.A.String()]; !_ok || (ok && ttl != panAnalyticTtlMagicNum && ttl != a.Hdr.Ttl) {
+							if !IsPanAnalytic(a.A.String(), a.Hdr.Ttl) {
 								record.IP = append(record.IP, a.A.String())
 							}
 						}
