@@ -130,9 +130,12 @@ func (client DNSClient) send() {
 }
 
 func (client DNSClient) recv() {
-	// 泛解析域名指向的 IP
+	// 泛解析记录
 	for record := range chPanAnalyticRecord {
 		client.Record <- record
+		if record.Type == "CNAME" && strings.HasSuffix(record.Target, "." + rootDomain) {
+			client.Query <- record.Target
+		}
 	}
 
 	for timer := range client.chSent {
@@ -158,7 +161,7 @@ func (client DNSClient) recv() {
 					if _, okPanAnalyticRecord := panAnalyticRecord[target]; !okPanAnalyticRecord {
 						record.Type = "CNAME"
 						record.Target = target
-						if strings.HasSuffix(record.Target, rootDomain) {
+						if strings.HasSuffix(record.Target, "." + rootDomain) {
 							go func() {
 								client.Query <- record.Target
 							}()
