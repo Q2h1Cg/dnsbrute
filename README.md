@@ -10,5 +10,8 @@
 
 #### Advantage
 - very very very fast
-    - DNS Server in Intranet: 10000 domains /sec
+    - DNS Server in Intranet: ~10000 domains /sec
     - Public DNS Server: 4000-5000 domains /sec
+
+#### Screenshot
+![Screenshot](screenshot.png)
