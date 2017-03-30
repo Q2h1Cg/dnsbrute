@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/csv"
 	"flag"
 	"fmt"
 	"os"
@@ -129,10 +130,33 @@ func main() {
 		close(records)
 	}()
 
+	// 输出
+	fd, err := os.Create(*target + ".csv")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer fd.Close()
+
+	csvStdout := csv.NewWriter(os.Stdout)
+	csvFile := csv.NewWriter(fd)
+
+	// header
+	csvStdout.Write([]string{"Domain", "Type", "Record"})
+	csvFile.Write([]string{"Domain", "Type", "Record"})
+
 	for record := range records {
 		if _, ok := reported[record.Domain]; !ok {
 			reported[record.Domain] = struct{}{}
-			log.Info(record)
+			line := []string{record.Domain, record.Type}
+			if record.Type == "A" {
+				line = append(line, strings.Join(record.IP, "|"))
+			} else {
+				line = append(line, record.Target)
+			}
+			csvStdout.Write(line)
+			csvStdout.Flush()
+			csvFile.Write(line)
 		}
 	}
+	csvFile.Flush()
 }
