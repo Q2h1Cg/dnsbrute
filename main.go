@@ -14,7 +14,7 @@ import (
 	"github.com/chuhades/dnsbrute/log"
 )
 
-const versionNumber = "1.0#dev"
+const versionNumber = "1.0#20170330"
 
 func main() {
 	flag.Usage = func() {
