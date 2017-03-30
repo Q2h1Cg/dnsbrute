@@ -58,11 +58,8 @@ func (h hackertarget) Query(rootDomain string, subDomains chan<- string, message
 	for scanner.Scan() {
 		record := strings.TrimSpace(scanner.Text())
 		if record != "" {
-			domain := strings.Split(record, ",")[0]
-			if domain != rootDomain {
-				subDomains <- domain
-				counter++
-			}
+			subDomains <- strings.Split(record, ",")[0]
+			counter++
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -88,8 +85,8 @@ func (p passiveDNS) Query(rootDomain string, subDomains chan<- string, message c
 	}
 
 	for _, i := range strings.Split(resp, "</td><td>") {
-		domain := strings.Split(i, " ")[0]
-		if strings.HasSuffix(domain, rootDomain) && domain != rootDomain {
+		domain := strings.TrimSpace(strings.Split(i, " ")[0])
+		if strings.HasSuffix(domain, "." + rootDomain) {
 			subDomains <- domain
 			counter++
 		}
