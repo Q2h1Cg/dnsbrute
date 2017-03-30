@@ -15,8 +15,12 @@ func ParentDomain(domain string) string {
 	return string([]byte(domain)[idx+1:])
 }
 
-
-// 去除域名结尾的 .
+// TrimSuffixPoint 去除域名结尾的 .
 func TrimSuffixPoint(s string) string {
 	return strings.TrimSuffix(s, ".")
+}
+
+// IsSubdomain 判断是否是子域名
+func IsSubdomain(domain string) bool {
+	return strings.HasSuffix(TrimSuffixPoint(domain), "."+rootDomain)
 }

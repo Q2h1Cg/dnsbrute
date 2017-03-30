@@ -86,7 +86,7 @@ func (p passiveDNS) Query(rootDomain string, subDomains chan<- string, message c
 
 	for _, i := range strings.Split(resp, "</td><td>") {
 		domain := strings.TrimSpace(strings.Split(i, " ")[0])
-		if strings.HasSuffix(domain, "." + rootDomain) {
+		if IsSubdomain(domain) {
 			subDomains <- domain
 			counter++
 		}
