@@ -10,9 +10,10 @@ import (
 )
 
 var (
-	authoritativeDNSServers = []string{}
-	panAnalyticRecords      = map[string]uint32{}
-	chPanAnalyticRecord     = make(chan DNSRecord)
+	analyzeAuthoritativeDNSServersLimit = 3
+	authoritativeDNSServers             = []string{}
+	panAnalyticRecords                  = map[string]uint32{}
+	chPanAnalyticRecord                 = make(chan DNSRecord)
 )
 
 type panAnalyticRecord struct {
@@ -24,6 +25,9 @@ type panAnalyticRecord struct {
 }
 
 func setAuthoritativeDNSServers() {
+	if analyzeAuthoritativeDNSServersLimit == 0 {
+		log.Fatalf("%s: no DNS Server\n", rootDomain)
+	}
 	msg := &dns.Msg{}
 	msg.SetQuestion(dns.Fqdn(rootDomain), dns.TypeNS)
 	in, err := dns.Exchange(msg, dnsServers[rand.Intn(len(dnsServers))])
@@ -34,6 +38,7 @@ func setAuthoritativeDNSServers() {
 			}
 		}
 	} else {
+		analyzeAuthoritativeDNSServersLimit -= 1
 		setAuthoritativeDNSServers()
 	}
 }
