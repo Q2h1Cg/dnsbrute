@@ -26,7 +26,7 @@ type panAnalyticRecord struct {
 
 func setAuthoritativeDNSServers() {
 	if analyzeAuthoritativeDNSServersLimit == 0 {
-		log.Fatalf("%s: no DNS Server\n", rootDomain)
+		log.Fatalf("%s: NO NS Record\n", rootDomain)
 	}
 	msg := &dns.Msg{}
 	msg.SetQuestion(dns.Fqdn(rootDomain), dns.TypeNS)
