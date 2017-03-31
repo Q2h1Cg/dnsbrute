@@ -9,8 +9,6 @@ import (
 	"github.com/miekg/dns"
 )
 
-const panAnalyticTtlMagicNum uint32 = 13377331
-
 var (
 	authoritativeDNSServers = []string{}
 	panAnalyticRecords      = map[string]uint32{}
@@ -79,32 +77,25 @@ func AnalyzePanAnalytic() {
 
 	ch := make(chan panAnalyticRecord)
 	for _, server := range authoritativeDNSServers {
-		for i := 0; i < 10; i++ {
+		for i := 0; i < 5; i++ {
 			go func(server string) {
 				ch <- query(domain, server)
 			}(server)
 		}
 	}
 	for _ = range authoritativeDNSServers {
-		for i := 0; i < 10; i++ {
+		for i := 0; i < 5; i++ {
 			pRecord := <-ch
 			switch pRecord.Type {
 			case "CNAME":
-				cnames[pRecord.Target] = struct{}{}
 				// TODO cname 泛解析的情况下，是否把 IP 也加入黑名单
-				if pRecord.Ttl%60 != 0 {
-					panAnalyticRecords[pRecord.Target] = panAnalyticTtlMagicNum
-				} else {
-					panAnalyticRecords[pRecord.Target] = pRecord.Ttl
-				}
+				cnames[pRecord.Target] = struct{}{}
+				panAnalyticRecords[pRecord.Target] = pRecord.Ttl
+
 			case "A":
 				for _, ip := range pRecord.IP {
 					ipLists[ip] = struct{}{}
-					if pRecord.Ttl%60 != 0 {
-						panAnalyticRecords[ip] = panAnalyticTtlMagicNum
-					} else {
-						panAnalyticRecords[ip] = pRecord.Ttl
-					}
+					panAnalyticRecords[ip] = pRecord.Ttl
 				}
 			}
 		}
@@ -130,5 +121,5 @@ func AnalyzePanAnalytic() {
 // IsPanAnalytic 是否为泛解析域名
 func IsPanAnalytic(record string, ttl uint32) bool {
 	_ttl, ok := panAnalyticRecords[TrimSuffixPoint(record)]
-	return ok && (_ttl == panAnalyticTtlMagicNum || _ttl == ttl)
+	return ok && _ttl == ttl
 }

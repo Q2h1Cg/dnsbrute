@@ -159,8 +159,6 @@ func (client DNSClient) recv() {
 				switch firstAnswer := msg.Answer[0].(type) {
 				case *dns.CNAME:
 					target := TrimSuffixPoint(firstAnswer.Target)
-					//if ttl, _ok := panAnalyticRecords[target]; ttl != panAnalyticTtlMagicNum && !(_ok && firstAnswer.Hdr.Ttl == ttl) {
-					//if ttl, _ok := panAnalyticRecords[target]; !_ok || (_ok && ttl != panAnalyticTtlMagicNum && ttl != firstAnswer.Hdr.Ttl) {
 					if !IsPanAnalytic(target, firstAnswer.Hdr.Ttl) {
 						record.Type = "CNAME"
 						record.Target = target
@@ -173,12 +171,8 @@ func (client DNSClient) recv() {
 				case *dns.A:
 					record.Type = "A"
 					for _, ans := range msg.Answer {
-						if a, ok := ans.(*dns.A); ok {
-							//if ttl, _ok := panAnalyticRecords[a.A.String()]; ttl != panAnalyticTtlMagicNum && !(_ok && a.Hdr.Ttl == ttl) {
-							//if ttl, _ok := panAnalyticRecords[a.A.String()]; !_ok || (ok && ttl != panAnalyticTtlMagicNum && ttl != a.Hdr.Ttl) {
-							if !IsPanAnalytic(a.A.String(), a.Hdr.Ttl) {
-								record.IP = append(record.IP, a.A.String())
-							}
+						if a, ok := ans.(*dns.A); ok && !IsPanAnalytic(a.A.String(), a.Hdr.Ttl) {
+							record.IP = append(record.IP, a.A.String())
 						}
 					}
 				}
