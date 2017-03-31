@@ -42,7 +42,9 @@ func query(domain string, server string) (record panAnalyticRecord) {
 	msg := &dns.Msg{}
 	msg.SetQuestion(dns.Fqdn(domain), dns.TypeA)
 	in, err := dns.Exchange(msg, server)
-	if err == nil {
+	if err != nil {
+		return query(domain, server)
+	} else {
 		if len(in.Answer) > 0 {
 			record.Domain = domain
 			record.Ttl = in.Answer[0].Header().Ttl
@@ -77,14 +79,14 @@ func AnalyzePanAnalytic() {
 
 	ch := make(chan panAnalyticRecord)
 	for _, server := range authoritativeDNSServers {
-		for i := 0; i < 5; i++ {
+		for i := 0; i < 10; i++ {
 			go func(server string) {
 				ch <- query(domain, server)
 			}(server)
 		}
 	}
 	for _ = range authoritativeDNSServers {
-		for i := 0; i < 5; i++ {
+		for i := 0; i < 10; i++ {
 			pRecord := <-ch
 			switch pRecord.Type {
 			case "CNAME":
@@ -121,5 +123,20 @@ func AnalyzePanAnalytic() {
 // IsPanAnalytic 是否为泛解析域名
 func IsPanAnalytic(record string, ttl uint32) bool {
 	_ttl, ok := panAnalyticRecords[TrimSuffixPoint(record)]
-	return ok && _ttl == ttl
+	// 若记录不存在于黑名单列表，则不是泛解析
+	if !ok {
+		return false
+	} else {
+		// 若记录存在且 ttl 相等，是泛解析
+		if _ttl == ttl {
+			return true
+		} else {
+			// 若记录存在，ttl 不等，且两次 ttl 都是 60（1min）的倍数，不是泛解析
+			if _ttl%60 == 0 && ttl%60 == 0 {
+				return false
+			} else {
+				return true
+			}
+		}
+	}
 }
