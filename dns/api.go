@@ -13,7 +13,7 @@ import (
 
 const apiTimeout = 3 * time.Second
 
-var apiList []API = []API{hackertarget{}, passiveDNS{}}
+var apiList = []API{hackertarget{}, passiveDNS{}}
 
 type API interface {
 	Name() string
@@ -29,7 +29,7 @@ func QueryOverAPI(rootDomain string) <-chan string {
 	}
 
 	go func() {
-		for _ = range apiList {
+		for range apiList {
 			log.Debug(<-message)
 		}
 		close(subDomains)

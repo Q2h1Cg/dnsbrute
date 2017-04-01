@@ -19,7 +19,7 @@ var (
 
 type panAnalyticRecord struct {
 	Domain string
-	Ttl    uint32
+	TTL    uint32
 	Type   string
 	Target string
 	IP     []string
@@ -35,7 +35,7 @@ func setAuthoritativeDNSServers() {
 			authoritativeDNSServers = append(authoritativeDNSServers, TrimSuffixPoint(server.Host)+":53")
 		}
 	} else {
-		analyzeAuthoritativeDNSServersLimit -= 1
+		analyzeAuthoritativeDNSServersLimit--
 		setAuthoritativeDNSServers()
 	}
 }
@@ -50,7 +50,7 @@ func query(domain string, server string) (record panAnalyticRecord) {
 
 	if len(in.Answer) > 0 {
 		record.Domain = domain
-		record.Ttl = in.Answer[0].Header().Ttl
+		record.TTL = in.Answer[0].Header().Ttl
 		switch firstAnswer := in.Answer[0].(type) {
 		case *dns.CNAME:
 			record.Type = "CNAME"
@@ -87,19 +87,19 @@ func AnalyzePanAnalytic() {
 			}(server)
 		}
 	}
-	for _ = range authoritativeDNSServers {
+	for range authoritativeDNSServers {
 		for i := 0; i < 10; i++ {
 			pRecord := <-ch
 			switch pRecord.Type {
 			case "CNAME":
 				// TODO cname 泛解析的情况下，是否把 IP 也加入黑名单
 				cnames[pRecord.Target] = struct{}{}
-				panAnalyticRecords[pRecord.Target] = pRecord.Ttl
+				panAnalyticRecords[pRecord.Target] = pRecord.TTL
 
 			case "A":
 				for _, ip := range pRecord.IP {
 					ipLists[ip] = struct{}{}
-					panAnalyticRecords[ip] = pRecord.Ttl
+					panAnalyticRecords[ip] = pRecord.TTL
 				}
 			}
 		}
