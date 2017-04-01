@@ -9,9 +9,7 @@
 - dict based
 
 #### Advantage
-- very very very fast
-    - DNS Server in Intranet: ~10000 domains /sec
-    - Public DNS Server: 4000-5000 domains /sec
+- Fast: 5000~10000 domains /sec, depending on the network
 
 #### Screenshot
 ![Screenshot](screenshot.png)
