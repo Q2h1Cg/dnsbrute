@@ -3,6 +3,7 @@ package dns
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"net"
 
 	"github.com/chuhades/dnsbrute/log"
 
@@ -28,14 +29,10 @@ func setAuthoritativeDNSServers() {
 	if analyzeAuthoritativeDNSServersLimit == 0 {
 		log.Fatalf("%s: NO NS Record\n", rootDomain)
 	}
-	msg := &dns.Msg{}
-	msg.SetQuestion(dns.Fqdn(rootDomain), dns.TypeNS)
-	in, err := dns.Exchange(msg, dnsServers[rand.Intn(len(dnsServers))])
-	if err == nil && len(in.Answer) > 0 {
-		for _, ans := range in.Answer {
-			if ns, ok := ans.(*dns.NS); ok {
-				authoritativeDNSServers = append(authoritativeDNSServers, TrimSuffixPoint(ns.Ns)+":53")
-			}
+	nsServers, err := net.LookupNS(rootDomain)
+	if err == nil && len(nsServers) > 0 {
+		for _, server := range nsServers {
+			authoritativeDNSServers = append(authoritativeDNSServers, TrimSuffixPoint(server.Host)+":53")
 		}
 	} else {
 		analyzeAuthoritativeDNSServersLimit -= 1

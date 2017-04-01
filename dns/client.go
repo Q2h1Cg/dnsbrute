@@ -1,19 +1,14 @@
 package dns
 
 import (
-	"bufio"
 	_rand "math/rand"
 	"net"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/chuhades/dnsbrute/log"
 
 	"github.com/miekg/dns"
 )
-
-var dnsServers []string
 
 var rand = _rand.New(_rand.NewSource(time.Now().Unix()))
 
@@ -52,30 +47,6 @@ type DNSClient struct {
 	chSent    chan dnsRequest
 	chTimeout chan dnsRequest
 	*dns.Conn
-}
-
-func init() {
-	// 加载 DNS Server 字典
-	fd, err := os.Open("dict/dnsservers.txt")
-	if err != nil {
-		log.Fatal("Can't open dict/dnsservers.txt:", err)
-	}
-	defer fd.Close()
-
-	scanner := bufio.NewScanner(fd)
-	for scanner.Scan() {
-		server := strings.TrimSpace(scanner.Text())
-		if strings.HasPrefix(server, "#") || server == "" {
-			continue
-		}
-		if !strings.HasSuffix(server, ":53") {
-			server += ":53"
-		}
-		dnsServers = append(dnsServers, server)
-	}
-	if err := scanner.Err(); err != nil {
-		log.Fatal("Read dict/dnsservers.txt:", err)
-	}
 }
 
 func NewClient() DNSClient {
