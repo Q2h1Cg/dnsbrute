@@ -45,7 +45,7 @@ func query(domain string, server string) (record panAnalyticRecord) {
 	msg.SetQuestion(dns.Fqdn(domain), dns.TypeA)
 	in, err := dns.Exchange(msg, server)
 	if err != nil {
-		return query(domain, server)
+		return
 	}
 
 	if len(in.Answer) > 0 {
@@ -81,14 +81,14 @@ func AnalyzePanAnalytic() {
 
 	ch := make(chan panAnalyticRecord)
 	for _, server := range authoritativeDNSServers {
-		for i := 0; i < 10; i++ {
+		for i := 0; i < 5; i++ {
 			go func(server string) {
 				ch <- query(domain, server)
 			}(server)
 		}
 	}
 	for range authoritativeDNSServers {
-		for i := 0; i < 10; i++ {
+		for i := 0; i < 5; i++ {
 			pRecord := <-ch
 			switch pRecord.Type {
 			case "CNAME":
