@@ -130,7 +130,7 @@ func (client DNSClient) recv() {
 				switch firstAnswer := msg.Answer[0].(type) {
 				case *dns.CNAME:
 					target := TrimSuffixPoint(firstAnswer.Target)
-					if !IsPanAnalytic(target, firstAnswer.Hdr.Ttl) {
+					if !IsPanDNSRecord(target, firstAnswer.Hdr.Ttl) {
 						record.Type = "CNAME"
 						record.Target = target
 						if IsSubdomain(record.Target) {
@@ -142,7 +142,7 @@ func (client DNSClient) recv() {
 				case *dns.A:
 					record.Type = "A"
 					for _, ans := range msg.Answer {
-						if a, ok := ans.(*dns.A); ok && !IsPanAnalytic(a.A.String(), a.Hdr.Ttl) {
+						if a, ok := ans.(*dns.A); ok && !IsPanDNSRecord(a.A.String(), a.Hdr.Ttl) {
 							record.IP = append(record.IP, a.A.String())
 						}
 					}

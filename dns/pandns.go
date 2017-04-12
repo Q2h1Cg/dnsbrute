@@ -68,8 +68,8 @@ func query(domain string, server string) (record panAnalyticRecord) {
 	return record
 }
 
-// AnalyzePanAnalytic 分析泛解析
-func AnalyzePanAnalytic() {
+// IdentifyPanDNS 分析泛解析
+func IdentifyPanDNS() {
 	hash := md5.New()
 	hash.Write([]byte(rootDomain))
 	domain := hex.EncodeToString(hash.Sum(nil)) + "." + rootDomain
@@ -122,8 +122,8 @@ func AnalyzePanAnalytic() {
 	log.Debugf("pan analytic record: %v\n", panAnalyticRecords)
 }
 
-// IsPanAnalytic 是否为泛解析域名
-func IsPanAnalytic(record string, ttl uint32) bool {
+// IsPanDNSRecord 是否为泛解析记录
+func IsPanDNSRecord(record string, ttl uint32) bool {
 	_ttl, ok := panAnalyticRecords[TrimSuffixPoint(record)]
 	// 若记录不存在于黑名单列表，不是泛解析
 	// 若记录存在，且与黑名单中的 ttl 不等但都是 60（1min）的倍数，不是泛解析
