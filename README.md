@@ -9,7 +9,9 @@
 - dict based
 
 #### Advantage
-- Fast: 5000~10000 domains /sec, depending on the network
+- Fast: 5000~10000+ domains /sec, depending on the network
+
+- Pan-DNS identification
 
 #### Screenshot
 ![Screenshot](screenshot.png)
