@@ -46,8 +46,8 @@ func (h hackertarget) Name() string {
 
 func (h hackertarget) Query(rootDomain string, subDomains chan<- string, message chan<- string) {
 	counter := 0
-	url := "http://api.hackertarget.com/hostsearch/?q=" + rootDomain
-	resp, err := httplib.Get(url).SetTimeout(apiTimeout, apiTimeout).Response()
+	urlSearch := "http://api.hackertarget.com/hostsearch/?q=" + rootDomain
+	resp, err := httplib.Get(urlSearch).SetTimeout(apiTimeout, apiTimeout).Response()
 	if err != nil {
 		message <- fmt.Sprintf("API %s error: %v", h.Name(), err)
 		return
@@ -77,8 +77,8 @@ func (p passiveDNS) Name() string {
 
 func (p passiveDNS) Query(rootDomain string, subDomains chan<- string, message chan<- string) {
 	counter := 0
-	url := "http://ptrarchive.com/tools/search.htm?label=" + rootDomain
-	resp, err := httplib.Get(url).SetTimeout(apiTimeout, apiTimeout).String()
+	urlSearch := "http://ptrarchive.com/tools/search.htm?label=" + rootDomain
+	resp, err := httplib.Get(urlSearch).SetTimeout(apiTimeout, apiTimeout).String()
 	if err != nil {
 		message <- fmt.Sprintf("API %s error: %v", p.Name(), err)
 		return
