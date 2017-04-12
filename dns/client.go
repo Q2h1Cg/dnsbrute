@@ -102,7 +102,7 @@ func (client DNSClient) send() {
 
 func (client DNSClient) recv() {
 	// 泛解析记录
-	for record := range chPanAnalyticRecord {
+	for record := range chPanDNSRecord {
 		client.Record <- record
 		if record.Type == "CNAME" && IsSubdomain(record.Target) {
 			client.Query <- record.Target

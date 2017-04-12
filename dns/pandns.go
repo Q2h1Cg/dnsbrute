@@ -13,8 +13,8 @@ import (
 var (
 	analyzeAuthoritativeDNSServersLimit = 3
 	authoritativeDNSServers             = []string{}
-	panAnalyticRecords                  = map[string]uint32{}
-	chPanAnalyticRecord                 = make(chan DNSRecord)
+	panDNSRecords                       = map[string]uint32{}
+	chPanDNSRecord                      = make(chan DNSRecord)
 )
 
 type panAnalyticRecord struct {
@@ -94,12 +94,12 @@ func IdentifyPanDNS() {
 			case "CNAME":
 				// TODO cname 泛解析的情况下，是否把 IP 也加入黑名单
 				cnames[pRecord.Target] = struct{}{}
-				panAnalyticRecords[pRecord.Target] = pRecord.TTL
+				panDNSRecords[pRecord.Target] = pRecord.TTL
 
 			case "A":
 				for _, ip := range pRecord.IP {
 					ipLists[ip] = struct{}{}
-					panAnalyticRecords[ip] = pRecord.TTL
+					panDNSRecords[ip] = pRecord.TTL
 				}
 			}
 		}
@@ -108,23 +108,23 @@ func IdentifyPanDNS() {
 
 	go func() {
 		for cname := range cnames {
-			chPanAnalyticRecord <- DNSRecord{domain, "CNAME", cname, []string{}}
+			chPanDNSRecord <- DNSRecord{domain, "CNAME", cname, []string{}}
 		}
 		if len(ipLists) > 0 {
 			IP := []string{}
 			for ip := range ipLists {
 				IP = append(IP, ip)
 			}
-			chPanAnalyticRecord <- DNSRecord{domain, "A", "", IP}
+			chPanDNSRecord <- DNSRecord{domain, "A", "", IP}
 		}
-		close(chPanAnalyticRecord)
+		close(chPanDNSRecord)
 	}()
-	log.Debugf("pan analytic record: %v\n", panAnalyticRecords)
+	log.Debugf("pan analytic record: %v\n", panDNSRecords)
 }
 
 // IsPanDNSRecord 是否为泛解析记录
 func IsPanDNSRecord(record string, ttl uint32) bool {
-	_ttl, ok := panAnalyticRecords[TrimSuffixPoint(record)]
+	_ttl, ok := panDNSRecords[TrimSuffixPoint(record)]
 	// 若记录不存在于黑名单列表，不是泛解析
 	// 若记录存在，且与黑名单中的 ttl 不等但都是 60（1min）的倍数，不是泛解析
 	if !ok || (_ttl != ttl && _ttl%60 == 0 && ttl%60 == 0) {
