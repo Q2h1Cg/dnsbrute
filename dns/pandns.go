@@ -3,6 +3,8 @@ package dns
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"net"
 
 	"github.com/chuhades/dnsbrute/log"
@@ -25,10 +27,11 @@ type panAnalyticRecord struct {
 	IP     []string
 }
 
-func setAuthoritativeDNSServers() {
+func SetAuthoritativeDNSServers() error {
 	if analyzeAuthoritativeDNSServersLimit == 0 {
-		log.Fatalf("%s: NO NS Record\n", rootDomain)
+		return errors.New(fmt.Sprintf("%s: NO NS Record", rootDomain))
 	}
+
 	nsServers, err := net.LookupNS(rootDomain)
 	if err == nil && len(nsServers) > 0 {
 		for _, server := range nsServers {
@@ -36,8 +39,10 @@ func setAuthoritativeDNSServers() {
 		}
 	} else {
 		analyzeAuthoritativeDNSServersLimit--
-		setAuthoritativeDNSServers()
+		return SetAuthoritativeDNSServers()
 	}
+
+	return nil
 }
 
 func query(domain string, server string) (record panAnalyticRecord) {
@@ -75,9 +80,6 @@ func IdentifyPanDNS() {
 	domain := hex.EncodeToString(hash.Sum(nil)) + "." + rootDomain
 	cnames := map[string]struct{}{}
 	ipLists := map[string]struct{}{}
-
-	// 获取权威 DNS 服务器
-	setAuthoritativeDNSServers()
 
 	ch := make(chan panAnalyticRecord)
 	for _, server := range authoritativeDNSServers {

@@ -52,7 +52,11 @@ func main() {
 	// set root domain
 	dns.SetRootDomain(*target)
 
-	// 设置权威 DNS 服务器并探测泛解析
+	// 设置权威 DNS 服务器
+	if err := dns.SetAuthoritativeDNSServers(); err != nil {
+		log.Fatal(err)
+	}
+	// 探测泛解析
 	log.Debug("generating blacklist of ip")
 	dns.IdentifyPanDNS()
 
