@@ -9,11 +9,6 @@ func SetRootDomain(domain string) {
 	rootDomain = domain
 }
 
-// ParentDomain 获取父域名
-func ParentDomain(domain string) string {
-	return domain[strings.Index(domain, ".")+1:]
-}
-
 // TrimSuffixPoint 去除域名结尾的 .
 func TrimSuffixPoint(s string) string {
 	return strings.TrimSuffix(s, ".")
