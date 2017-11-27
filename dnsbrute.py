@@ -2,13 +2,24 @@
 
 import asyncio
 
+import aiodns
+
 from lib import dns
 
 
+async def produce(queue):
+    for i in range(50000):
+        domain ="{}.baidu.com".format(i)
+        await queue.put(domain)
+        # print("put {}".format(domain))
+    for i in range(1000):
+        await queue.put(None)
+
+
+queue = asyncio.Queue()
+tasks = [dns.query_loop("baidu.com", queue) for _ in range(1000)]
+tasks.append(produce(queue))
 loop = asyncio.get_event_loop()
-client = dns.Client()
-client2 = dns.Client()
-loop.run_until_complete(client._query_ns("sh3ll.me"))
-print(client._resolvers)
-print(client2._resolvers)
+loop.run_until_complete(asyncio.wait(tasks))
+loop.close()
 

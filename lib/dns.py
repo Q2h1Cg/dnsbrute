@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
 
 import asyncio
+import threading
 
 import aiodns
+import async_timeout
 from pycares import QUERY_TYPE_NS, QUERY_TYPE_A, QUERY_TYPE_CNAME
+from publicsuffix import PublicSuffixList
 
 from lib import log
+
+
+_resolver = None
+_black_list = {}
+_psl = None
 
 
 class Record:
@@ -39,99 +47,44 @@ class Record:
         return "<{}>".format(self.__str__())
 
 
-class Client:
-    """DNS 客户端"""
+async def query_loop(domain, queue):
+    """轮询
+    :param domain: 域名
+    :type domain: str
+    :param queue: 子域名队列
+    :type queue: asyncio.Queue
+    """
+    global _resolver
+    if not _resolver:
+        thread = threading.Thread(target=_query_ns, args=(domain, asyncio.get_event_loop()))
+        thread.start()
+        thread.join()
 
-    _resolver = None
-    _black_list = {}
+    # 循环读取 queue
+    while True:
+        sub_domain = await queue.get()
+        if sub_domain is None:
+            return
 
-    def __init(self, ns_servers):
-        """
-        :param ns_servers: NS 服务器
-        :type ns_servers: list(str)
-        """
-        self._resolver = aiodns.DNSResolver(ns_servers)
-
-    def _is_root_domain(self, domain):
-        """是否是主域名
-        :param domain: 域名
-        :type domain: str
-
-        :return: 是否是主域名
-        :rtype: bool
-        """
-        return False
-
-    def _parent_domain(self, domain):
-        """域名的父域名
-        :param domain: 域名
-        :type domain: str
-
-        :return: 父域名
-        :rtype: str
-        """
-        if self._is_root_domain(domain):
-            return domain
-
-        return domain[domain.index(".")+1:]
-
-    def _query_pan_dns(self, domain):
-        """生成泛解析黑名单
-        :param domain: 域名
-        :type domain: str
-        """
-        self._black_list[domain] = {}
-
-    def _is_pan_dns(self, record):
-        """判断是否是泛解析
-        :param record: 域名记录
-        :type record: Record
-
-        :return: 是否是泛解析
-        :rtype: bool
-        """
-        pass
-
-    async def query_a_cname(self, domain):
-        """查询 DNS A、CNAME 记录
-        :param domain: 域名
-        :type domain: str
-
-        :return: 查询结果
-        :rtype list(Record)
-        """
-        parent_domain = self._parent_domain(domain)
-        if parent_domain not in self._black_list:
-            # 添加黑名单
-            self._query_pan_dns(parent_domain)
-
-        records = []
-        for query_type in ("A", "CNAME"):
-            try:
-                _records = await self._resolver.query(domain, query_type)
-            except:
-                pass
-            else:
-                records = [Record(domain, {"A": QUERY_TYPE_A, "CNAME": QUERY_TYPE_CNAME}[query_type], record.ttl,
-                                  record.host) for record in _records]
-                break
-
-        # 判断是否是泛解析
-        return [record for record in records if not self._is_pan_dns(record)]
+        records = await query_a_cname(sub_domain)
+        for record in records:
+            log.info(record)
+        # queue.task_done()
 
 
-def query_ns(domain):
+def _query_ns(domain, loop):
     """查询域名 NS 记录
     :param domain: 域名
     :type domain: str
     """
-    loop = asyncio.get_event_loop()
+    loop_ = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop_)
     ns_records = []
     ns_servers = []
     exception = None
     for _ in range(3):
         try:
-            ns_records = loop.run_until_complete(aiodns.DNSResolver().query(domain, "NS"))
+            ns_records = loop_.run_until_complete(aiodns.DNSResolver().query(domain, "NS"))
         except Exception as ex:
             exception = ex
         else:
@@ -143,9 +96,90 @@ def query_ns(domain):
         return
 
     for ns_record in ns_records:
-        a_records = loop.run_until_complete(aiodns.DNSResolver().query(ns_record.host, "A"))
+        a_records = loop_.run_until_complete(aiodns.DNSResolver().query(ns_record.host, "A"))
         for a_record in a_records:
             ns_servers.append(a_record.host)
 
     log.debug("ns servers for {}: {}".format(domain, ns_servers))
-    return ns_servers
+    global _resolver
+    _resolver = aiodns.DNSResolver(ns_servers, loop)
+
+
+async def query_a_cname(domain):
+    """查询 DNS A、CNAME 记录
+    :param domain: 域名
+    :type domain: str
+
+    :return: 查询结果
+    :rtype list(Record)
+    """
+    parent_domain = _parent_domain(domain)
+    if parent_domain not in _black_list:
+        # 添加黑名单
+        _query_pan_dns(parent_domain)
+
+    records = []
+    for query_type in ("A", "CNAME"):
+        try:
+            with async_timeout.timeout(5):
+                _records = await _resolver.query(domain, query_type)
+        except:
+            pass
+        else:
+            if query_type == "A":
+                records = [Record(domain, QUERY_TYPE_A, record.ttl, record.host) for record in _records]
+            else:
+                records = [Record(domain, QUERY_TYPE_CNAME, _records.ttl, _records.cname)]
+            break
+
+    return [record for record in records if not _is_pan_dns(record)]
+
+
+def _parent_domain(domain):
+    """域名的父域名
+    :param domain: 域名
+    :type domain: str
+
+    :return: 父域名
+    :rtype: str
+    """
+    if _is_root_domain(domain):
+        return domain
+
+    return domain[domain.index(".")+1:]
+
+
+def _is_root_domain(domain):
+    """是否是主域名
+    :param domain: 域名
+    :type domain: str
+
+    :return: 是否是主域名
+    :rtype: bool
+    """
+    global _psl
+    if not _psl:
+        with open("dict/public_suffix_list.dat") as fd:
+            _psl = PublicSuffixList(fd)
+
+    return domain == _psl.get_public_suffix(domain)
+
+
+def _query_pan_dns(domain):
+    """生成泛解析黑名单
+    :param domain: 域名
+    :type domain: str
+    """
+    global _black_list
+    _black_list[domain] = {}
+
+
+def _is_pan_dns(record):
+    """判断是否是泛解析
+    :param record: 域名记录
+    :type record: Record
+
+    :return: 是否是泛解析
+    :rtype: bool
+        """
+    return False
