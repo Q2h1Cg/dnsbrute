@@ -18,6 +18,7 @@ def _log(level, message):
                                            function_name, line_number, message))
 
 
+debug = partial(_log, "debug")
 info = partial(_log, "info")
 warn = partial(_log, "warn")
 error = partial(_log, "error")
