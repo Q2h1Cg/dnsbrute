@@ -11,6 +11,8 @@ from publicsuffix import PublicSuffixList
 from lib import log
 
 
+_Timeout = 5
+
 _resolver = None
 _black_list = {}
 _psl = None
@@ -76,28 +78,29 @@ def _query_ns(domain, loop):
     :param domain: 域名
     :type domain: str
     """
+    async def _query(domain, query_type):
+        with async_timeout.timeout(_Timeout):
+            return await aiodns.DNSResolver().query(domain, query_type)
+
     loop_ = asyncio.new_event_loop()
     asyncio.set_event_loop(loop_)
     ns_records = []
-    ns_servers = []
+    ns_servers = set()
     exception = None
-    for _ in range(3):
-        try:
-            ns_records = loop_.run_until_complete(aiodns.DNSResolver().query(domain, "NS"))
-        except Exception as ex:
-            exception = ex
-        else:
-            break
+    try:
+        ns_records = loop_.run_until_complete(_query(domain, "NS"))
+    except Exception as ex:
+        exception = ex
 
     # 读取 ns 记录时出现异常或无 NS 记录
     if exception or not ns_records:
         log.error("{}, {}, {}".format(domain, ns_records, exception))
         return
 
-    for ns_record in ns_records:
-        a_records = loop_.run_until_complete(aiodns.DNSResolver().query(ns_record.host, "A"))
-        for a_record in a_records:
-            ns_servers.append(a_record.host)
+    a_records = loop_.run_until_complete(asyncio.gather(*[_query(ns_record.host, "A") for ns_record in ns_records]))
+    for a_record in a_records:
+        for a in a_record:
+            ns_servers.add(a.host)
 
     log.debug("ns servers for {}: {}".format(domain, ns_servers))
     global _resolver
@@ -120,7 +123,7 @@ async def query_a_cname(domain):
     record = None
     for query_type in ("A", "CNAME"):
         try:
-            with async_timeout.timeout(5):
+            with async_timeout.timeout(_Timeout):
                 records = await _resolver.query(domain, query_type)
         except:
             pass
