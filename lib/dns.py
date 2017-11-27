@@ -29,7 +29,7 @@ class Record:
         self.answer = answer if answer else []
 
     def __str__(self):
-        query_type = {1: "A", 2: "NS", 5: "CNAME"}
+        query_type = {QUERY_TYPE_NS: "NS", QUERY_TYPE_A: "A", QUERY_TYPE_CNAME: "CNAME"}
         return "{} - {} - {} - {}".format(self.domain, query_type[self.type], self.ttl, self.answer)
 
     def __repr__(self):
