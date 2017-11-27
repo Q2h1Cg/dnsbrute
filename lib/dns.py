@@ -36,18 +36,30 @@ class Record:
         return "<{}>".format(self.__str__())
 
 
-async def query_ns(domain):
-    """查询域名 NS 记录
-    :param domain: 域名
-    :type domain: str
+class Client:
+    """DNS 客户端"""
+    _resolvers = {}
 
-    :return: NS 记录
-    :rtype: list
-    """
-    records = []
+    async def _query_ns(self, domain):
+        """查询域名 NS 记录
+        :param domain: 域名
+        :type domain: str
+        """
+        if domain in self._resolvers:
+            return
 
-    query_result = await aiodns.DNSResolver().query(domain, "NS")
-    for record in query_result:
-        records.append(Record(domain, QUERY_TYPE_NS, 0, record.host))
+        ns_servers = []
+        ns_records = await aiodns.DNSResolver().query(domain, "NS")
+        for ns_record in ns_records:
+            a_records = await aiodns.DNSResolver().query(ns_record.host, "A")
+            for a_record in a_records:
+                ns_servers.append(a_record.host)
 
-    return records
+        self._resolvers[domain] = aiodns.DNSResolver(ns_servers)
+
+    async def query_a_cname(self, domain):
+        """查询 DNS A、CNAME 记录
+        :param domain: 域名
+        :type domain: str
+        """
+        pass
