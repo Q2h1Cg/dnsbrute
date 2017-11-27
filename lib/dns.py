@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import aiodns
+
 from pycares import QUERY_TYPE_NS, QUERY_TYPE_A, QUERY_TYPE_CNAME
 
 
@@ -32,3 +34,20 @@ class Record:
 
     def __repr__(self):
         return "<{}>".format(self.__str__())
+
+
+async def query_ns(domain):
+    """查询域名 NS 记录
+    :param domain: 域名
+    :type domain: str
+
+    :return: NS 记录
+    :rtype: list
+    """
+    records = []
+
+    query_result = await aiodns.DNSResolver().query(domain, "NS")
+    for record in query_result:
+        records.append(Record(domain, QUERY_TYPE_NS, 0, record.host))
+
+    return records
