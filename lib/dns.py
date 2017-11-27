@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import asyncio
+import hashlib
 import threading
 
 import aiodns
@@ -118,7 +119,9 @@ async def query_a_cname(domain):
     parent_domain = _parent_domain(domain)
     if parent_domain not in _black_list:
         # 添加黑名单
-        _query_pan_dns(parent_domain)
+        thread = threading.Thread(target=_query_pan_dns, args=(parent_domain,))
+        thread.start()
+        thread.join()
 
     record = None
     for query_type in ("A", "CNAME"):
@@ -132,7 +135,8 @@ async def query_a_cname(domain):
                 record = Record(domain, QUERY_TYPE_CNAME, records.ttl, records.cname)
             elif query_type == "A" and records:
                 record = Record(domain, QUERY_TYPE_A, records[0].ttl, [record_.host for record_ in records])
-            break
+            if record:
+                break
 
     return record
 
@@ -172,8 +176,31 @@ def _query_pan_dns(domain):
     :param domain: 域名
     :type domain: str
     """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    resolver = aiodns.DNSResolver(_resolver.nameservers)
+
+    async def _query(domain, query_type):
+        with async_timeout.timeout(_Timeout):
+            return await resolver.query(domain, query_type)
+
+    sub_domain = hashlib.md5(domain.encode("utf-8")).hexdigest() + "." + domain
+    record = None
     global _black_list
-    _black_list[domain] = {}
+    for query_type in ("A", "CNAME"):
+        try:
+            records = loop.run_until_complete(_query(sub_domain, query_type))
+        except:
+            pass
+        else:
+            if query_type == "CNAME":
+                record = Record(domain, QUERY_TYPE_CNAME, records.ttl, records.cname)
+            elif query_type == "A" and records:
+                record = Record(domain, QUERY_TYPE_A, records[0].ttl, [record_.host for record_ in records])
+            if record:
+                break
+
+    _black_list[domain] = record
 
 
 def _is_pan_dns(record):
@@ -183,5 +210,5 @@ def _is_pan_dns(record):
 
     :return: 是否是泛解析
     :rtype: bool
-        """
+    """
     return False
