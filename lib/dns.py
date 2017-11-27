@@ -54,7 +54,6 @@ async def query_loop(domain, queue):
     :param queue: 子域名队列
     :type queue: asyncio.Queue
     """
-    global _resolver
     if not _resolver:
         thread = threading.Thread(target=_query_ns, args=(domain, asyncio.get_event_loop()))
         thread.start()
@@ -66,8 +65,8 @@ async def query_loop(domain, queue):
         if sub_domain is None:
             return
 
-        records = await query_a_cname(sub_domain)
-        for record in records:
+        record = await query_a_cname(sub_domain)
+        if record:
             log.info(record)
         # queue.task_done()
 
@@ -111,28 +110,28 @@ async def query_a_cname(domain):
     :type domain: str
 
     :return: 查询结果
-    :rtype list(Record)
+    :rtype Record
     """
     parent_domain = _parent_domain(domain)
     if parent_domain not in _black_list:
         # 添加黑名单
         _query_pan_dns(parent_domain)
 
-    records = []
+    record = None
     for query_type in ("A", "CNAME"):
         try:
             with async_timeout.timeout(5):
-                _records = await _resolver.query(domain, query_type)
+                records = await _resolver.query(domain, query_type)
         except:
             pass
         else:
-            if query_type == "A":
-                records = [Record(domain, QUERY_TYPE_A, record.ttl, record.host) for record in _records]
-            else:
-                records = [Record(domain, QUERY_TYPE_CNAME, _records.ttl, _records.cname)]
+            if query_type == "CNAME":
+                record = Record(domain, QUERY_TYPE_CNAME, records.ttl, records.cname)
+            elif query_type == "A" and records:
+                record = Record(domain, QUERY_TYPE_A, records[0].ttl, [record_.host for record_ in records])
             break
 
-    return [record for record in records if not _is_pan_dns(record)]
+    return record
 
 
 def _parent_domain(domain):
