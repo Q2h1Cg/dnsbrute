@@ -188,7 +188,7 @@ def _query_pan_dns(domain):
         with async_timeout.timeout(_Timeout):
             return await resolver.query(domain, query_type)
 
-    sub_domain = hashlib.md5(domain.encode("utf-8")).hexdigest() + "." + domain
+    sub_domain = hashlib.md5(domain.encode("ascii")).hexdigest() + "." + domain
     record = Record(domain, QUERY_TYPE_A, -1, [])
     global _black_list
     for query_type in ("A", "CNAME"):
