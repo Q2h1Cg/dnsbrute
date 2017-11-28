@@ -12,7 +12,7 @@ from publicsuffix import PublicSuffixList
 from lib import log
 
 
-_Timeout = 5
+_Timeout = 3
 
 _resolver = None
 _black_list = {}
@@ -79,6 +79,9 @@ def _query_ns(domain, loop):
     :param domain: 域名
     :type domain: str
     """
+    # TODO qq.com
+    # TODO a.shifen.com
+
     async def _query(domain, query_type):
         with async_timeout.timeout(_Timeout):
             return await aiodns.DNSResolver().query(domain, query_type)
@@ -96,7 +99,7 @@ def _query_ns(domain, loop):
     # 读取 ns 记录时出现异常或无 NS 记录
     if exception or not ns_records:
         log.error("{}, {}, {}".format(domain, ns_records, exception))
-        return
+        exit(1)
 
     a_records = loop_.run_until_complete(asyncio.gather(*[_query(ns_record.host, "A") for ns_record in ns_records]))
     for a_record in a_records:
@@ -118,7 +121,7 @@ async def query_a_cname(domain):
     """
     parent_domain = _parent_domain(domain)
     if parent_domain not in _black_list:
-        # 添加黑名单
+        # 生成泛解析黑名单
         thread = threading.Thread(target=_query_pan_dns, args=(parent_domain,))
         thread.start()
         thread.join()
@@ -132,13 +135,14 @@ async def query_a_cname(domain):
             pass
         else:
             if query_type == "CNAME":
-                record = Record(domain, QUERY_TYPE_CNAME, records.ttl, records.cname)
+                record = Record(domain, QUERY_TYPE_CNAME, records.ttl if records.ttl else -1, [records.cname])
             elif query_type == "A" and records:
                 record = Record(domain, QUERY_TYPE_A, records[0].ttl, [record_.host for record_ in records])
             if record:
                 break
 
-    return record
+    if record:
+        return None if _is_pan_dns(record) else record
 
 
 def _parent_domain(domain):
@@ -185,7 +189,7 @@ def _query_pan_dns(domain):
             return await resolver.query(domain, query_type)
 
     sub_domain = hashlib.md5(domain.encode("utf-8")).hexdigest() + "." + domain
-    record = None
+    record = Record(domain, QUERY_TYPE_A, -1, [])
     global _black_list
     for query_type in ("A", "CNAME"):
         try:
@@ -193,13 +197,18 @@ def _query_pan_dns(domain):
         except:
             pass
         else:
-            if query_type == "CNAME":
-                record = Record(domain, QUERY_TYPE_CNAME, records.ttl, records.cname)
+            if query_type == "CNAME" and records.cname not in record.answer:
+                record.answer.append(records.cname)
+                if records.ttl:
+                    record.ttl = records.ttl
             elif query_type == "A" and records:
-                record = Record(domain, QUERY_TYPE_A, records[0].ttl, [record_.host for record_ in records])
-            if record:
-                break
+                for record_ in records:
+                    if record_ not in record.answer:
+                        record.answer.append(record_.host)
+                record.ttl = records[0].ttl
 
+    if record.answer:
+        log.debug("{} pan dns record: {}".format(domain, record.answer))
     _black_list[domain] = record
 
 
@@ -211,4 +220,17 @@ def _is_pan_dns(record):
     :return: 是否是泛解析
     :rtype: bool
     """
+    pan_dns_record = _black_list[_parent_domain(record.domain)]
+
+    # 如果无记录，不是泛解析
+    if not pan_dns_record.answer:
+        return False
+
+    # 如果是 CNAME 记录并且在泛解析列表中，是泛解析
+    if record.type == QUERY_TYPE_CNAME and all([answer in pan_dns_record.answer for answer in record.answer]):
+        return True
+    # 如果所有记录都在泛解析列表中，且 ttl 相同，是泛解析
+    if all([answer in pan_dns_record.answer for answer in record.answer]) and record.ttl == pan_dns_record.ttl:
+        return True
+
     return False

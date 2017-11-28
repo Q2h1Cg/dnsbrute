@@ -8,9 +8,12 @@ from lib import dns
 
 
 async def produce(queue):
-    for i in range(50000):
-        domain ="{}.baidu.com".format(i)
-        await queue.put(domain)
+    # for i in range(10000):
+    with open("dict/53683.txt") as fd:
+        for line in fd:
+            line = line.strip()
+            domain ="{}.baidu.com".format(line)
+            await queue.put(domain)
         # print("put {}".format(domain))
     for i in range(1000):
         await queue.put(None)
