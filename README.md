@@ -11,3 +11,7 @@
 
 - Fast: 5000~10000+ domains /sec, depending on the network
 - Pan-DNS identification
+
+#### Screenshot
+
+![Screenshot](screenshot.png)
