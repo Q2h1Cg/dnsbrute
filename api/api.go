@@ -21,6 +21,8 @@ func Query(domain string) <-chan string {
 	ch := make(chan string)
 
 	go func() {
+		defer close(ch)
+
 		apiMap := map[string]<-chan string{}
 		for _, api := range apiList {
 			apiMap[api.Name()] = api.Query(domain)
@@ -34,8 +36,6 @@ func Query(domain string) <-chan string {
 			}
 			log.Infof("%s: %d records\n", name, counter)
 		}
-
-		close(ch)
 	}()
 
 	return ch
