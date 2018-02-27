@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"encoding/csv"
 	"flag"
-	"log"
-	"os"
 	"fmt"
+	"os"
+	"time"
 
-	"github.com/Q2h1Cg/dnsbrute/dns"
 	"github.com/Q2h1Cg/dnsbrute/api"
+	"github.com/Q2h1Cg/dnsbrute/dns"
+	"github.com/Q2h1Cg/dnsbrute/log"
 )
 
 const versionNumber = "2.0#20180227"
@@ -21,9 +22,9 @@ func main() {
 	dict := flag.String("dict", "dict/53683.txt", "Dict file")
 	rate := flag.Int("rate", 10000, "Transmit rate of packets")
 	retry := flag.Int("retry", 3, "Limit for retry")
-	//debug := flag.Bool("debug", false, "Show debug information")
+	debug := flag.Bool("debug", false, "Show debug information")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: \n  %s [Options] {target}\n\nOptions\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: \n  %s [Options]\n\nOptions\n", os.Args[0])
 		flag.PrintDefaults()
 	}
 
@@ -37,7 +38,11 @@ func main() {
 		flag.Usage()
 		return
 	}
+	if *debug {
+		log.SetLevel(log.DEBUG)
+	}
 
+	start := time.Now()
 	subDomainsToQuery := mixInDictAPI(*domain, *dict)
 	dns.Configure(*domain, *server, *rate, *retry)
 
@@ -51,7 +56,7 @@ func main() {
 	// 输出
 	file, err := os.Create(*domain + ".csv")
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatal(err)
 	}
 	defer file.Close()
 
@@ -62,9 +67,10 @@ func main() {
 
 	for record := range dns.Records {
 		out := record.CSV()
-		log.Println(out)
+		log.Info(out)
 		csvOut.Write(out)
 	}
+	log.Infof("Done in %.2f seconds\n", time.Since(start).Seconds())
 }
 
 func mixInDictAPI(domain, dict string) <-chan string {
@@ -80,7 +86,7 @@ func mixInDictAPI(domain, dict string) <-chan string {
 		// Dict
 		file, err := os.Open(dict)
 		if err != nil {
-			log.Fatalln(err)
+			log.Fatal(err)
 		}
 
 		scanner := bufio.NewScanner(file)
@@ -89,7 +95,7 @@ func mixInDictAPI(domain, dict string) <-chan string {
 		}
 
 		if err := scanner.Err(); err != nil {
-			log.Fatalln(err)
+			log.Fatal(err)
 		}
 
 		mix <- domain

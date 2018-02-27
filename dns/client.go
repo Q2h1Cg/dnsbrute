@@ -1,11 +1,12 @@
 package dns
 
 import (
-	"log"
 	"sync"
 	"time"
 
 	"github.com/miekg/dns"
+
+	"github.com/Q2h1Cg/dnsbrute/log"
 )
 
 const timeout = time.Second
@@ -75,11 +76,11 @@ func send() {
 			// 超时重发请求
 			request.SentCount++
 			request.Timer = time.AfterFunc(timeout, func() {
-				log.Println("retry", domain, request.SentCount)
+				log.Debug("retry", domain, request.SentCount)
 				Queries <- domain
 			})
 		case <-time.After(3 * timeout):
-			log.Println("no more queries")
+			log.Debug("no more queries")
 			close(noMoreQueries)
 			return
 		}

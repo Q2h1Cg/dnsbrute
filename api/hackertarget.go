@@ -2,9 +2,10 @@ package api
 
 import (
 	"bufio"
-	"log"
 	"net/http"
 	"strings"
+
+	"github.com/Q2h1Cg/dnsbrute/log"
 )
 
 type hackertarget struct{}
@@ -29,7 +30,7 @@ func (h hackertarget) Query(domain string) <-chan string {
 		client := http.Client{Timeout: timeout}
 		resp, err := client.Get(url)
 		if err != nil {
-			log.Println("error while fetching api.hackertarget.com:", err)
+			log.Info("error while fetching api.hackertarget.com:", err)
 			return
 		}
 		defer resp.Body.Close()

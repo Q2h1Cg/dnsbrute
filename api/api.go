@@ -1,8 +1,9 @@
 package api
 
 import (
-	"log"
 	"time"
+
+	"github.com/Q2h1Cg/dnsbrute/log"
 )
 
 // API 接口定义
@@ -31,7 +32,7 @@ func Query(domain string) <-chan string {
 				ch <- record
 				counter++
 			}
-			log.Printf("%s: %d records\n", name, counter)
+			log.Infof("%s: %d records\n", name, counter)
 		}
 
 		close(ch)
