@@ -65,52 +65,55 @@ func main() {
 	defer csvOut.Flush()
 	csvOut.Write([]string{"Domain", "Type", "CNAME", "IP"})
 
+	counter := 0
 	for record := range dns.Records {
+		counter++
 		out := record.CSV()
 		log.Info(out)
 		csvOut.Write(out)
 	}
-	log.Infof("Done in %.2f seconds\n", time.Since(start).Seconds())
+
+	log.Infof("done in %.2f seconds, %d records\n", time.Since(start).Seconds(), counter)
 }
 
 func mixInDictAPI(domain, dict string) <-chan string {
 	subDomainsToQuery := make(chan string)
 	mix := make(chan string)
-
-	go func() {
-		// API
-		for sub := range api.Query(domain) {
-			mix <- sub
-		}
-
-		// Dict
-		file, err := os.Open(dict)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			mix <- scanner.Text() + "." + domain
-		}
-
-		if err := scanner.Err(); err != nil {
-			log.Fatal(err)
-		}
-
-		mix <- domain
-	}()
+	domains := map[string]struct{}{}
 
 	// mix in
 	go func() {
-		domains := map[string]struct{}{}
+		defer close(subDomainsToQuery)
+
 		for sub := range mix {
-			if _, ok := domains[sub]; !ok {
-				domains[sub] = struct{}{}
-				subDomainsToQuery <- sub
-			}
+			domains[sub] = struct{}{}
+		}
+
+		for domain := range domains {
+			subDomainsToQuery <- domain
 		}
 	}()
+
+	mix <- domain
+
+	// API
+	for sub := range api.Query(domain) {
+		mix <- sub
+	}
+
+	// Dict
+	file, err := os.Open(dict)
+	if err != nil {
+		log.Fatal(err)
+	}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		mix <- scanner.Text() + "." + domain
+	}
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+	close(mix)
 
 	return subDomainsToQuery
 }
