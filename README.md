@@ -40,7 +40,7 @@ Options
 
 ![Screenshot](screenshot.png)
 
-#### Depends
+#### Requirements
 
 - go: 1.10
 - packages: install with `glide`
