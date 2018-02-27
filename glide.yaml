@@ -1,0 +1,4 @@
+package: github.com/Q2h1Cg/dnsbrute
+import:
+- package: github.com/miekg/dns
+  version: ~1.0.4
