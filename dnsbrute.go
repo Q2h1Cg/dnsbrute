@@ -43,7 +43,7 @@ func main() {
 	}
 
 	start := time.Now()
-	subDomainsToQuery := mixInDictAPI(*domain, *dict)
+	subDomainsToQuery := mixInAPIDict(*domain, *dict)
 	dns.Configure(*domain, *server, *rate, *retry)
 
 	// 输入
@@ -76,15 +76,15 @@ func main() {
 	log.Infof("done in %.2f seconds, %d records\n", time.Since(start).Seconds(), counter)
 }
 
-func mixInDictAPI(domain, dict string) <-chan string {
+func mixInAPIDict(domain, dict string) <-chan string {
 	subDomainsToQuery := make(chan string)
 	mix := make(chan string)
-	domains := map[string]struct{}{}
 
 	// mix in
 	go func() {
 		defer close(subDomainsToQuery)
 
+		domains := map[string]struct{}{}
 		for sub := range mix {
 			domains[sub] = struct{}{}
 		}
@@ -94,26 +94,33 @@ func mixInDictAPI(domain, dict string) <-chan string {
 		}
 	}()
 
-	mix <- domain
-
 	// API
+	// 同步，保证 API 完整执行
 	for sub := range api.Query(domain) {
 		mix <- sub
 	}
 
-	// Dict
-	file, err := os.Open(dict)
-	if err != nil {
-		log.Fatal(err)
-	}
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		mix <- scanner.Text() + "." + domain
-	}
-	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
-	}
-	close(mix)
+	go func() {
+		defer close(mix)
+
+		// Domain
+		mix <- domain
+
+		// Dict
+		file, err := os.Open(dict)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			mix <- scanner.Text() + "." + domain
+		}
+		if err := scanner.Err(); err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	return subDomainsToQuery
 }

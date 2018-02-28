@@ -1,6 +1,19 @@
 hash: e35c5cea5c79b10977ff4f0987a6713eee3719ec5c2f4a3d1fdd360ca6ffabb2
-updated: 2018-02-26T11:27:44.361674+08:00
+updated: 2018-02-27T17:31:27.931486+08:00
 imports:
 - name: github.com/miekg/dns
   version: 5364553f1ee9cddc7ac8b62dce148309c386695b
+- name: golang.org/x/crypto
+  version: 8c653846df49742c4c85ec37e5d9f8d3ba657895
+  subpackages:
+  - ed25519
+  - ed25519/internal/edwards25519
+- name: golang.org/x/net
+  version: cbe0f9307d0156177f9dd5dc85da1a31abc5f2fb
+  subpackages:
+  - bpf
+  - internal/iana
+  - internal/socket
+  - ipv4
+  - ipv6
 testImports: []
