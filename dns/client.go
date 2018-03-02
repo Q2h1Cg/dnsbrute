@@ -103,7 +103,7 @@ func receive() {
 		if err = client.SetReadDeadline(time.Now().Add(timeout)); err != nil {
 			continue
 		}
-		if msg, err = client.ReadMsg(); err != nil {
+		if msg, err = client.ReadMsg(); err != nil || len(msg.Question) == 0 {
 			continue
 		}
 
@@ -114,6 +114,7 @@ func receive() {
 			}
 			requests.Delete(domain)
 		}
+
 		// 标记响应
 		if _, ok := received[domain]; ok {
 			continue

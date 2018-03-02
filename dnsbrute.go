@@ -13,7 +13,7 @@ import (
 	"github.com/Q2h1Cg/dnsbrute/log"
 )
 
-const versionNumber = "2.0#20180227"
+const versionNumber = "2.0.1#20180301"
 
 func main() {
 	version := flag.Bool("version", false, "Show program's version number and exit")
@@ -24,7 +24,7 @@ func main() {
 	retry := flag.Int("retry", 3, "Limit for retry")
 	debug := flag.Bool("debug", false, "Show debug information")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: \n  %s [Options]\n\nOptions\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage:\n  %s [Options]\n\nOptions\n", os.Args[0])
 		flag.PrintDefaults()
 	}
 
